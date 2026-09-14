@@ -1,0 +1,10 @@
+
+> react-example@0.0.0 dev
+> tsx server.ts
+
+🚀 Servidor rodando com sucesso em http://0.0.0.0:3002
+[2m4:28:59 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/context/AuthContext.tsx, /src/index.css[22m
+[2m9:15:43 AM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2mpackage.json[22m
+[2m9:17:33 AM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2mpackage.json[22m
+[2m9:18:38 AM[22m [36m[1m[vite][22m[39m changed tsconfig file detected: C:/Projetos/Eclipse-Sistema-Financeiro_v2/tsconfig.json - Clearing cache and forcing full-reload to ensure TypeScript is compiled with updated config values.
+[2m9:18:39 AM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2mtsconfig.json[22m
