@@ -19,6 +19,7 @@ import {
   ArrowUpRight,
   AlertTriangle
 } from 'lucide-react';
+import { FileSpreadsheet } from 'lucide-react';
 import { SystemSettings, UserAccount, CategoryDefinition, CostSheet } from '../types.ts';
 import { useAuth } from '../context/AuthContext.tsx';
 
@@ -35,6 +36,7 @@ interface ControlPanelViewProps {
   onUpdateUserRole: (id: string, role: 'admin' | 'user') => Promise<void>;
   onDeleteUser: (id: string) => Promise<void>;
   onResetDatabase: () => Promise<void>;
+  onOpenHistoricalImport: () => void;
 }
 
 export const ControlPanelView: React.FC<ControlPanelViewProps> = ({
@@ -49,7 +51,8 @@ export const ControlPanelView: React.FC<ControlPanelViewProps> = ({
   onCreateUser,
   onUpdateUserRole,
   onDeleteUser,
-  onResetDatabase
+  onResetDatabase,
+  onOpenHistoricalImport
 }) => {
   const { user: currentUser, isAdmin, formatCurrency } = useAuth();
   const [activeSection, setActiveSection] = useState<'categories' | 'users' | 'finance' | 'backup'>('categories');
@@ -214,6 +217,7 @@ export const ControlPanelView: React.FC<ControlPanelViewProps> = ({
             <Database className="w-4 h-4" />
             <span>Backup & Dados</span>
           </button>
+          {isAdmin && <button onClick={onOpenHistoricalImport} className="flex items-center gap-2 whitespace-nowrap rounded-xl bg-emerald-600 px-4 py-2 text-xs font-bold text-white hover:bg-emerald-700"><FileSpreadsheet className="h-4 w-4" />Importar histórico Excel</button>}
         </div>
       </div>
 

@@ -10,6 +10,7 @@ import { AuthModal } from './components/AuthModal.tsx';
 import { NewSheetModal } from './components/NewSheetModal.tsx';
 import { SettingsModal } from './components/SettingsModal.tsx';
 import { LoginGate } from './components/LoginGate.tsx';
+import { HistoricalImportModal } from './components/HistoricalImportModal.tsx';
 import { 
   AppDatabase, 
   CostSheet, 
@@ -21,6 +22,7 @@ import {
   ActiveTab 
 } from './types.ts';
 import { RefreshCw } from 'lucide-react';
+import { fetchDatabaseFromSupabase } from './services/supabaseData.ts';
 
 const emptyDatabase: AppDatabase = {
   users: [],
@@ -51,19 +53,14 @@ function AppContent() {
   // Modals
   const [newSheetModalOpen, setNewSheetModalOpen] = useState(false);
   const [settingsModalOpen, setSettingsModalOpen] = useState(false);
+  const [historicalImportOpen, setHistoricalImportOpen] = useState(false);
 
   // Fetch data from backend
   const fetchData = async () => {
     try {
       setLoading(true);
       setLoadError('');
-      const res = await fetch('/api/data');
-      if (!res.ok) throw new Error(`API indisponível (${res.status})`);
-      const contentType = res.headers.get('content-type') || '';
-      if (!contentType.includes('application/json')) {
-        throw new Error('A base de dados ainda não está conectada a esta publicação.');
-      }
-        const data: AppDatabase = await res.json();
+        const data = await fetchDatabaseFromSupabase();
         const safeData: AppDatabase = {
           ...emptyDatabase,
           ...data,
@@ -585,6 +582,7 @@ function AppContent() {
               onUpdateUserRole={handleUpdateUserRole}
               onDeleteUser={handleDeleteUser}
               onResetDatabase={handleResetDatabase}
+              onOpenHistoricalImport={() => setHistoricalImportOpen(true)}
             />
           )}
         </main>
@@ -630,6 +628,7 @@ function AppContent() {
         onUpdateSettings={handleUpdateSettings}
         onResetData={handleResetDatabase}
       />
+      <HistoricalImportModal isOpen={historicalImportOpen} onClose={() => setHistoricalImportOpen(false)} onImported={fetchData} />
     </div>
   );
 }
