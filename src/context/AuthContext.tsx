@@ -1,8 +1,12 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useEffect, useState } from 'react';
 import { UserRole, UserSession, UserAccount, ViewPreferences } from '../types.ts';
+import { isSupabaseConfigured, supabase } from '../lib/supabase.ts';
 
 interface AuthContextType {
   user: UserSession;
+  isAuthenticated: boolean;
+  authLoading: boolean;
+  authConfigurationError: string;
   isAdmin: boolean;
   isReadOnly: boolean;
   isViewer: boolean;
@@ -27,20 +31,7 @@ interface AuthContextType {
   formatDate: (isoDate: string | undefined) => string;
 }
 
-const defaultAdminSession: UserSession = {
-  id: 'usr-admin-1',
-  role: 'admin',
-  name: 'Administrador Geral',
-  email: 'admin@obras.pt'
-};
-
-const defaultUserSession: UserSession = {
-  id: 'usr-user-1',
-  role: 'user',
-  name: 'Eng. João Silva',
-  email: 'user@obras.pt'
-};
-
+const anonymousUser: UserSession = { id: '', role: 'viewer', name: '', email: '' };
 const defaultViewPreferences: ViewPreferences = {
   privacyMode: false,
   displayDensity: 'comfortable',
@@ -48,288 +39,88 @@ const defaultViewPreferences: ViewPreferences = {
   showMarginAlerts: true,
   activePartnerFilter: 'all'
 };
-
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<UserSession>(() => {
-    const saved = localStorage.getItem('app_user_session');
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        if (parsed && parsed.role) return parsed;
-      } catch (e) {
-        console.warn('Error parsing saved session:', e);
-      }
-    }
-    return defaultAdminSession;
-  });
-
-  const [viewPreferences, setViewPreferences] = useState<ViewPreferences>(() => {
-    const saved = localStorage.getItem('app_view_preferences');
-    if (saved) {
-      try {
-        return { ...defaultViewPreferences, ...JSON.parse(saved) };
-      } catch (e) {
-        console.warn('Error parsing view preferences:', e);
-      }
-    }
-    return defaultViewPreferences;
-  });
-
+  const [user, setUser] = useState<UserSession>(anonymousUser);
+  const [authLoading, setAuthLoading] = useState(true);
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
-  const [usersList, setUsersList] = useState<UserAccount[]>([]);
+  const [viewPreferences, setViewPreferences] = useState<ViewPreferences>(() => {
+    const saved = localStorage.getItem('app_view_preferences');
+    if (!saved) return defaultViewPreferences;
+    try { return { ...defaultViewPreferences, ...JSON.parse(saved) }; }
+    catch { return defaultViewPreferences; }
+  });
 
-  useEffect(() => {
-    localStorage.setItem('app_user_session', JSON.stringify(user));
-  }, [user]);
-
-  useEffect(() => {
-    localStorage.setItem('app_view_preferences', JSON.stringify(viewPreferences));
-  }, [viewPreferences]);
-
-  const togglePrivacyMode = () => {
-    setViewPreferences((prev) => ({ ...prev, privacyMode: !prev.privacyMode }));
-  };
-
-  const refreshUsers = async () => {
-    try {
-      const res = await fetch('/api/auth/users');
-      if (res.ok) {
-        const list = await res.json();
-        setUsersList(list);
-      }
-    } catch (err) {
-      console.warn('Failed to fetch users list:', err);
+  const loadAuthenticatedUser = async (authUser: { id: string; email?: string; user_metadata?: Record<string, unknown>; app_metadata?: Record<string, unknown> }) => {
+    let role: UserRole = authUser.app_metadata?.role === 'admin' ? 'admin' : 'viewer';
+    let profileName = typeof authUser.user_metadata?.name === 'string' ? authUser.user_metadata.name : '';
+    if (supabase) {
+      const { data: membership } = await supabase.from('organization_members').select('role').eq('user_id', authUser.id).limit(1).maybeSingle();
+      if (membership?.role === 'admin') role = 'admin';
+      else if (membership?.role === 'viewer') role = 'viewer';
+      const { data: profile } = await supabase.from('profiles').select('name').eq('id', authUser.id).maybeSingle();
+      if (profile?.name) profileName = profile.name;
     }
+    setUser({ id: authUser.id, email: authUser.email || '', name: profileName || authUser.email?.split('@')[0] || 'Utilizador', role });
   };
 
   useEffect(() => {
-    refreshUsers();
+    if (!supabase) { setAuthLoading(false); return; }
+    supabase.auth.getSession().then(async ({ data }) => {
+      if (data.session?.user) await loadAuthenticatedUser(data.session.user);
+      setAuthLoading(false);
+    });
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user) void loadAuthenticatedUser(session.user);
+      else setUser(anonymousUser);
+      setAuthLoading(false);
+    });
+    return () => listener.subscription.unsubscribe();
   }, []);
 
-  const login = async (email: string, password: string = 'admin'): Promise<{ success: boolean; error?: string }> => {
-    try {
-      const res = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password })
-      });
+  useEffect(() => { localStorage.setItem('app_view_preferences', JSON.stringify(viewPreferences)); }, [viewPreferences]);
 
-      if (!res.ok) {
-        const errData = await res.json().catch(() => ({ error: 'Falha no login' }));
-        return { success: false, error: errData.error || 'Credenciais inválidas' };
-      }
-
-      const userData = await res.json();
-      const session: UserSession = {
-        id: userData.id,
-        name: userData.name,
-        email: userData.email,
-        role: userData.role
-      };
-
-      setUser(session);
-      await refreshUsers();
-      return { success: true };
-    } catch (err: any) {
-      return { success: false, error: err.message || 'Erro de conexão com servidor' };
-    }
+  const login = async (email: string, password = '') => {
+    if (!supabase) return { success: false, error: 'Supabase não configurado no Netlify.' };
+    const { data, error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
+    if (error || !data.user) return { success: false, error: error?.message || 'Credenciais inválidas.' };
+    await loadAuthenticatedUser(data.user);
+    setAuthModalOpen(false);
+    return { success: true };
   };
-
-  const register = async (
-    name: string,
-    email: string,
-    password: string,
-    role: UserRole
-  ): Promise<{ success: boolean; error?: string }> => {
-    try {
-      const res = await fetch('/api/auth/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email, password, role })
-      });
-
-      if (!res.ok) {
-        const errData = await res.json().catch(() => ({ error: 'Falha no cadastro' }));
-        return { success: false, error: errData.error || 'Erro ao registrar usuário' };
-      }
-
-      const userData = await res.json();
-      const session: UserSession = {
-        id: userData.id,
-        name: userData.name,
-        email: userData.email,
-        role: userData.role
-      };
-
-      setUser(session);
-      await refreshUsers();
-      return { success: true };
-    } catch (err: any) {
-      return { success: false, error: err.message || 'Erro ao conectar com servidor' };
-    }
-  };
-
-  const updateUserRole = async (
-    id: string,
-    newRole: UserRole,
-    name?: string,
-    email?: string
-  ): Promise<{ success: boolean; error?: string }> => {
-    try {
-      const res = await fetch(`/api/auth/users/${id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-user-role': user.role
-        },
-        body: JSON.stringify({ role: newRole, name, email })
-      });
-
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({ error: 'Falha ao atualizar permissões' }));
-        return { success: false, error: err.error };
-      }
-
-      // If updating currently logged in user, update session
-      if (user.id === id) {
-        setUser((prev) => ({
-          ...prev,
-          role: newRole,
-          name: name || prev.name,
-          email: email || prev.email
-        }));
-      }
-
-      await refreshUsers();
-      return { success: true };
-    } catch (err: any) {
-      return { success: false, error: err.message || 'Erro de conexão' };
-    }
-  };
-
-  const deleteUser = async (id: string): Promise<{ success: boolean; error?: string }> => {
-    try {
-      const res = await fetch(`/api/auth/users/${id}`, {
-        method: 'DELETE',
-        headers: { 'x-user-role': user.role }
-      });
-
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({ error: 'Falha ao excluir usuário' }));
-        return { success: false, error: err.error };
-      }
-
-      await refreshUsers();
-      return { success: true };
-    } catch (err: any) {
-      return { success: false, error: err.message || 'Erro ao excluir' };
-    }
-  };
-
-  const switchRole = (newRole: UserRole, pin?: string): boolean => {
-    if (newRole === 'admin') {
-      if (!pin || pin === '1234' || pin === 'admin' || pin === '0000' || pin === '') {
-        setUser(defaultAdminSession);
-        return true;
-      }
-      return false;
-    } else {
-      setUser(defaultUserSession);
-      return true;
-    }
-  };
-
-  const logout = () => {
-    setUser(defaultUserSession);
-    setAuthMode('login');
-    setAuthModalOpen(true);
-  };
-
-  const formatCurrency = (val: number | string | undefined | null): string => {
-    if (viewPreferences.privacyMode) return '•••••• €';
-    if (val === undefined || val === null || val === '') return '0,00 €';
-    const num = typeof val === 'number' ? val : parseFloat(String(val).replace(',', '.')) || 0;
-    return new Intl.NumberFormat('pt-PT', {
-      style: 'currency',
-      currency: 'EUR',
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2
-    }).format(num);
-  };
-
-  const formatNumber = (val: number | string | undefined | null): string => {
-    if (viewPreferences.privacyMode) return '••••••';
-    if (val === undefined || val === null || val === '') return '0,00';
-    const num = typeof val === 'number' ? val : parseFloat(String(val).replace(',', '.')) || 0;
-    return new Intl.NumberFormat('pt-PT', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2
-    }).format(num);
-  };
-
-  const formatPercent = (val: number | string | undefined | null): string => {
-    if (viewPreferences.privacyMode) return '••••••%';
-    if (val === undefined || val === null || val === '') return '0,0%';
-    const num = typeof val === 'number' ? val : parseFloat(String(val).replace(',', '.')) || 0;
-    return `${num.toFixed(1)}%`;
-  };
-
-  const formatDate = (isoDate: string | undefined): string => {
+  const register = async (_name: string, _email: string, _password: string, _role: UserRole) => ({ success: false, error: 'O cadastro público está desativado. Crie utilizadores no Supabase.' });
+  const logout = () => { if (supabase) void supabase.auth.signOut(); setUser(anonymousUser); setAuthModalOpen(false); };
+  const unsupportedAdminOperation = async () => ({ success: false, error: 'Faça a gestão de utilizadores no Supabase.' });
+  const refreshUsers = async () => {};
+  const switchRole = () => false;
+  const togglePrivacyMode = () => setViewPreferences((prev) => ({ ...prev, privacyMode: !prev.privacyMode }));
+  const parseValue = (val: number | string | undefined | null) => typeof val === 'number' ? val : parseFloat(String(val ?? '').replace(',', '.')) || 0;
+  const formatCurrency = (val: number | string | undefined | null) => viewPreferences.privacyMode ? '•••••• €' : new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(parseValue(val));
+  const formatNumber = (val: number | string | undefined | null) => viewPreferences.privacyMode ? '••••••' : new Intl.NumberFormat('pt-PT', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(parseValue(val));
+  const formatPercent = (val: number | string | undefined | null) => viewPreferences.privacyMode ? '••••••%' : `${parseValue(val).toFixed(1)}%`;
+  const formatDate = (isoDate: string | undefined) => {
     if (!isoDate) return '-';
-    try {
-      return new Date(isoDate).toLocaleDateString('pt-PT', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric'
-      });
-    } catch {
-      return isoDate;
-    }
+    try { return new Date(isoDate).toLocaleDateString('pt-PT', { day: '2-digit', month: '2-digit', year: 'numeric' }); }
+    catch { return isoDate; }
   };
 
-  const isAdmin = user.role === 'admin';
+  const isAuthenticated = Boolean(user.id);
+  const isAdmin = isAuthenticated && user.role === 'admin';
   const isReadOnly = !isAdmin;
-
-  return (
-    <AuthContext.Provider
-      value={{
-        user,
-        isAdmin,
-        isReadOnly,
-        isViewer: isReadOnly,
-        login,
-        register,
-        switchRole,
-        logout,
-        usersList,
-        refreshUsers,
-        updateUserRole,
-        deleteUser,
-        authModalOpen,
-        setAuthModalOpen,
-        authMode,
-        setAuthMode,
-        viewPreferences,
-        setViewPreferences,
-        togglePrivacyMode,
-        formatCurrency,
-        formatNumber,
-        formatPercent,
-        formatDate
-      }}
-    >
-      {children}
-    </AuthContext.Provider>
-  );
+  return <AuthContext.Provider value={{
+    user, isAuthenticated, authLoading,
+    authConfigurationError: isSupabaseConfigured ? '' : 'Configure VITE_SUPABASE_URL e VITE_SUPABASE_PUBLISHABLE_KEY no Netlify.',
+    isAdmin, isReadOnly, isViewer: isReadOnly, login, register, switchRole, logout,
+    usersList: [], refreshUsers, updateUserRole: unsupportedAdminOperation, deleteUser: unsupportedAdminOperation,
+    authModalOpen, setAuthModalOpen, authMode, setAuthMode, viewPreferences, setViewPreferences,
+    togglePrivacyMode, formatCurrency, formatNumber, formatPercent, formatDate
+  }}>{children}</AuthContext.Provider>;
 };
 
 export function useAuth() {
   const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
+  if (!context) throw new Error('useAuth must be used within an AuthProvider');
   return context;
 }

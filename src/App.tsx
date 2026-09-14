@@ -9,6 +9,7 @@ import { ControlPanelView } from './components/ControlPanelView.tsx';
 import { AuthModal } from './components/AuthModal.tsx';
 import { NewSheetModal } from './components/NewSheetModal.tsx';
 import { SettingsModal } from './components/SettingsModal.tsx';
+import { LoginGate } from './components/LoginGate.tsx';
 import { 
   AppDatabase, 
   CostSheet, 
@@ -38,7 +39,7 @@ const emptyDatabase: AppDatabase = {
 };
 
 function AppContent() {
-  const { user, isAdmin, authModalOpen, setAuthModalOpen } = useAuth();
+  const { user, isAdmin, isAuthenticated, authLoading, authModalOpen, setAuthModalOpen } = useAuth();
   const [activeTab, setActiveTab] = useState<ActiveTab>('dashboard');
   const [activeSheetId, setActiveSheetId] = useState<string>('');
   
@@ -92,8 +93,15 @@ function AppContent() {
   };
 
   useEffect(() => {
-    fetchData();
-  }, []);
+    if (isAuthenticated) fetchData();
+    else setLoading(false);
+  }, [isAuthenticated]);
+
+  if (authLoading) {
+    return <div className="min-h-screen bg-slate-100 flex items-center justify-center text-sm font-semibold text-slate-600">A verificar sessão…</div>;
+  }
+
+  if (!isAuthenticated) return <LoginGate />;
 
   const activeSheet = database.sheets.find((s) => s.id === activeSheetId) || database.sheets[0];
 
