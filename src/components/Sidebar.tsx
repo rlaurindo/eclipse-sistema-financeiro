@@ -126,7 +126,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               Gestão Financeira
             </div>
             <div className="text-[10px] text-slate-500 font-medium">
-              {activeSheet?.name || 'Agosto 2026'}
+              {activeSheet?.name || 'Nenhum período'}
             </div>
           </div>
         </div>

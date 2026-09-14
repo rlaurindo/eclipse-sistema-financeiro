@@ -19,17 +19,33 @@ import {
   SystemSettings, 
   ActiveTab 
 } from './types.ts';
-import { initialData } from '../server/initialData.ts';
 import { RefreshCw } from 'lucide-react';
+
+const emptyDatabase: AppDatabase = {
+  users: [],
+  sheets: [],
+  invoicingMatrix: [],
+  auditLogs: [],
+  settings: {
+    companyName: 'Gestão Financeira',
+    currency: 'EUR',
+    partners: [],
+    defaultIrcRate: 21,
+    defaultFundReservePercentage: 20,
+    defaultCategories: [],
+    customCategories: []
+  }
+};
 
 function AppContent() {
   const { user, isAdmin, authModalOpen, setAuthModalOpen } = useAuth();
   const [activeTab, setActiveTab] = useState<ActiveTab>('dashboard');
-  const [activeSheetId, setActiveSheetId] = useState<string>('sheet-ago-2026');
+  const [activeSheetId, setActiveSheetId] = useState<string>('');
   
   // Database state
-  const [database, setDatabase] = useState<AppDatabase>(initialData);
+  const [database, setDatabase] = useState<AppDatabase>(emptyDatabase);
   const [loading, setLoading] = useState<boolean>(true);
+  const [loadError, setLoadError] = useState<string>('');
 
   // Modals
   const [newSheetModalOpen, setNewSheetModalOpen] = useState(false);
@@ -39,10 +55,24 @@ function AppContent() {
   const fetchData = async () => {
     try {
       setLoading(true);
+      setLoadError('');
       const res = await fetch('/api/data');
-      if (res.ok) {
+      if (!res.ok) throw new Error(`API indisponível (${res.status})`);
+      const contentType = res.headers.get('content-type') || '';
+      if (!contentType.includes('application/json')) {
+        throw new Error('A base de dados ainda não está conectada a esta publicação.');
+      }
         const data: AppDatabase = await res.json();
-        setDatabase(data);
+        const safeData: AppDatabase = {
+          ...emptyDatabase,
+          ...data,
+          users: data.users || [],
+          sheets: data.sheets || [],
+          invoicingMatrix: data.invoicingMatrix || [],
+          auditLogs: data.auditLogs || [],
+          settings: { ...emptyDatabase.settings, ...(data.settings || {}) }
+        };
+        setDatabase(safeData);
         
         // Pick August 2026 as active by default if available
         const agoSheet = data.sheets.find((s) => s.id === 'sheet-ago-2026' || (s.year === 2026 && s.month === 8));
@@ -51,9 +81,11 @@ function AppContent() {
         } else if (data.sheets.length > 0 && !data.sheets.some((s) => s.id === activeSheetId)) {
           setActiveSheetId(data.sheets[0].id);
         }
-      }
     } catch (err) {
-      console.warn('Backend offline, running with local initial data', err);
+      console.warn('Base de dados indisponível', err);
+      setDatabase(emptyDatabase);
+      setActiveSheetId('');
+      setLoadError(err instanceof Error ? err.message : 'Não foi possível carregar a base de dados.');
     } finally {
       setLoading(false);
     }
@@ -63,9 +95,7 @@ function AppContent() {
     fetchData();
   }, []);
 
-  const activeSheet = database.sheets.find((s) => s.id === activeSheetId) || 
-    database.sheets.find((s) => s.id === 'sheet-ago-2026') || 
-    database.sheets[0];
+  const activeSheet = database.sheets.find((s) => s.id === activeSheetId) || database.sheets[0];
 
   const categories = database.settings.customCategories || [
     { id: 'cat-1', name: 'Carros & Carrinhas', type: 'expense', color: '#3b82f6' },
@@ -474,6 +504,30 @@ function AppContent() {
 
         {/* Dynamic Views Content */}
         <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8">
+          {loadError && (
+            <div className="mb-5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+              <strong>Configuração pendente:</strong> {loadError}
+            </div>
+          )}
+
+          {!loading && database.sheets.length === 0 && activeTab !== 'control_panel' && (
+            <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-16 text-center shadow-sm">
+              <h2 className="text-xl font-bold text-slate-900">Base de dados vazia</h2>
+              <p className="mx-auto mt-2 max-w-lg text-sm text-slate-500">
+                Ainda não existem períodos, entradas ou despesas. Crie o primeiro período financeiro para começar.
+              </p>
+              {isAdmin && (
+                <button
+                  type="button"
+                  onClick={() => setNewSheetModalOpen(true)}
+                  className="mt-6 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-blue-700"
+                >
+                  Criar primeiro período
+                </button>
+              )}
+            </div>
+          )}
+
           {/* TAB 1: PAINEL GERAL */}
           {activeTab === 'dashboard' && activeSheet && (
             <DashboardView

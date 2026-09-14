@@ -84,7 +84,11 @@ export const TopBar: React.FC<TopBarProps> = ({
   };
 
   const august2026Sheet = sheets.find((s) => s.id === 'sheet-ago-2026' || (s.year === 2026 && s.month === 8));
-  const isAugust2026 = activeSheet?.id === august2026Sheet?.id || (activeSheet?.year === 2026 && activeSheet?.month === 8);
+  const isAugust2026 = Boolean(
+    activeSheet &&
+    ((august2026Sheet && activeSheet.id === august2026Sheet.id) ||
+      (activeSheet.year === 2026 && activeSheet.month === 8))
+  );
 
   return (
     <header className="bg-white border-b border-slate-200 px-4 sm:px-6 py-3.5 sticky top-0 z-20 shadow-2xs">
