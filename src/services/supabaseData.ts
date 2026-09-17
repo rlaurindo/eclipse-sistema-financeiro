@@ -5,10 +5,11 @@ export async function getOrganizationId(): Promise<string> {
   if (!supabase) throw new Error('Supabase não configurado.');
   const { data: auth } = await supabase.auth.getUser();
   if (!auth.user) throw new Error('Sessão inválida.');
-  const { data, error } = await supabase.from('organization_members').select('organization_id').eq('user_id', auth.user.id).limit(1).maybeSingle();
+  const { data, error } = await supabase.from('organization_members').select('organization_id,role').eq('user_id', auth.user.id);
   if (error) throw error;
-  if (!data?.organization_id) throw new Error('O utilizador ainda não está associado a uma organização.');
-  return data.organization_id;
+  const membership = data?.find((item) => item.role === 'admin') || data?.[0];
+  if (!membership?.organization_id) throw new Error('O utilizador ainda não está associado a uma organização.');
+  return membership.organization_id;
 }
 
 export async function fetchDatabaseFromSupabase(): Promise<AppDatabase> {

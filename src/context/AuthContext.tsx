@@ -57,9 +57,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     let role: UserRole = authUser.app_metadata?.role === 'admin' ? 'admin' : 'viewer';
     let profileName = typeof authUser.user_metadata?.name === 'string' ? authUser.user_metadata.name : '';
     if (supabase) {
-      const { data: membership } = await supabase.from('organization_members').select('role').eq('user_id', authUser.id).limit(1).maybeSingle();
-      if (membership?.role === 'admin') role = 'admin';
-      else if (membership?.role === 'viewer') role = 'viewer';
+      const { data: memberships, error: membershipError } = await supabase.from('organization_members').select('role').eq('user_id', authUser.id);
+      if (membershipError) console.error('Não foi possível consultar as permissões do utilizador.', membershipError);
+      else if (memberships?.some((membership) => membership.role === 'admin')) role = 'admin';
+      else if (memberships?.some((membership) => membership.role === 'viewer')) role = 'viewer';
       const { data: profile } = await supabase.from('profiles').select('name').eq('id', authUser.id).maybeSingle();
       if (profile?.name) profileName = profile.name;
     }
