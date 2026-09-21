@@ -41,7 +41,7 @@ const emptyDatabase: AppDatabase = {
 };
 
 function AppContent() {
-  const { user, isAdmin, isAuthenticated, authLoading, authModalOpen, setAuthModalOpen } = useAuth();
+  const { user, isAdmin, isAuthenticated, authLoading, isPasswordRecovery, authModalOpen, setAuthModalOpen } = useAuth();
   const [activeTab, setActiveTab] = useState<ActiveTab>('dashboard');
   const [activeSheetId, setActiveSheetId] = useState<string>('');
   
@@ -98,7 +98,7 @@ function AppContent() {
     return <div className="min-h-screen bg-slate-100 flex items-center justify-center text-sm font-semibold text-slate-600">A verificar sessão…</div>;
   }
 
-  if (!isAuthenticated) return <LoginGate />;
+  if (isPasswordRecovery || !isAuthenticated) return <LoginGate />;
 
   const activeSheet = database.sheets.find((s) => s.id === activeSheetId) || database.sheets[0];
 
