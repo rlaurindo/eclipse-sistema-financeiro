@@ -12,6 +12,7 @@ interface AuthContextType {
   isReadOnly: boolean;
   isViewer: boolean;
   login: (email: string, password?: string) => Promise<{ success: boolean; error?: string }>;
+  requestPasswordReset: (email: string) => Promise<{ success: boolean; error?: string }>;
   updatePassword: (password: string) => Promise<{ success: boolean; error?: string }>;
   register: (name: string, email: string, password: string, role: UserRole) => Promise<{ success: boolean; error?: string }>;
   switchRole: (newRole: UserRole, pin?: string) => boolean;
@@ -104,6 +105,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUser(anonymousUser);
     return { success: true };
   };
+  const requestPasswordReset = async (email: string) => {
+    if (!supabase) return { success: false, error: 'Supabase não configurado.' };
+    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+      redirectTo: `${window.location.origin}/`
+    });
+    return error ? { success: false, error: error.message } : { success: true };
+  };
   const register = async (_name: string, _email: string, _password: string, _role: UserRole) => ({ success: false, error: 'O cadastro público está desativado. Crie utilizadores no Supabase.' });
   const logout = () => { if (supabase) void supabase.auth.signOut(); setUser(anonymousUser); setAuthModalOpen(false); };
   const unsupportedAdminOperation = async () => ({ success: false, error: 'Faça a gestão de utilizadores no Supabase.' });
@@ -126,7 +134,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   return <AuthContext.Provider value={{
     user, isAuthenticated, authLoading, isPasswordRecovery,
     authConfigurationError: isSupabaseConfigured ? '' : 'Configure VITE_SUPABASE_URL e VITE_SUPABASE_PUBLISHABLE_KEY no Netlify.',
-    isAdmin, isReadOnly, isViewer: isReadOnly, login, updatePassword, register, switchRole, logout,
+    isAdmin, isReadOnly, isViewer: isReadOnly, login, requestPasswordReset, updatePassword, register, switchRole, logout,
     usersList: [], refreshUsers, updateUserRole: unsupportedAdminOperation, deleteUser: unsupportedAdminOperation,
     authModalOpen, setAuthModalOpen, authMode, setAuthMode, viewPreferences, setViewPreferences,
     togglePrivacyMode, formatCurrency, formatNumber, formatPercent, formatDate
