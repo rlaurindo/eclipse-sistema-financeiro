@@ -22,7 +22,7 @@ import {
   ActiveTab 
 } from './types.ts';
 import { RefreshCw } from 'lucide-react';
-import { fetchDatabaseFromSupabase } from './services/supabaseData.ts';
+import { createCategory, createExpense, createRevenue, fetchDatabaseFromSupabase, removeCategory, removeExpense, removeRevenue, updateExpense, updateRevenue } from './services/supabaseData.ts';
 
 const emptyDatabase: AppDatabase = {
   users: [],
@@ -119,16 +119,7 @@ function AppContent() {
   const handleAddRevenue = async (item: Partial<RevenueItem>) => {
     if (!isAdmin || !activeSheet) return;
     try {
-      const res = await fetch(`/api/sheets/${activeSheet.id}/revenues`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-user-role': user.role
-        },
-        body: JSON.stringify(item)
-      });
-      if (!res.ok) throw new Error('Falha ao registrar entrada');
-      const created: RevenueItem = await res.json();
+      const created = await createRevenue(activeSheet.id, item);
 
       setDatabase((prev) => ({
         ...prev,
@@ -150,16 +141,7 @@ function AppContent() {
   const handleUpdateRevenue = async (id: string, updated: Partial<RevenueItem>) => {
     if (!isAdmin || !activeSheet) return;
     try {
-      const res = await fetch(`/api/sheets/${activeSheet.id}/revenues/${id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-user-role': user.role
-        },
-        body: JSON.stringify(updated)
-      });
-      if (!res.ok) throw new Error('Falha ao atualizar entrada');
-      const saved: RevenueItem = await res.json();
+      const saved = await updateRevenue(id, updated);
 
       setDatabase((prev) => ({
         ...prev,
@@ -181,11 +163,7 @@ function AppContent() {
   const handleDeleteRevenue = async (id: string) => {
     if (!isAdmin || !activeSheet) return;
     try {
-      const res = await fetch(`/api/sheets/${activeSheet.id}/revenues/${id}`, {
-        method: 'DELETE',
-        headers: { 'x-user-role': user.role }
-      });
-      if (!res.ok) throw new Error('Falha ao remover entrada');
+      await removeRevenue(id);
 
       setDatabase((prev) => ({
         ...prev,
@@ -208,16 +186,7 @@ function AppContent() {
   const handleAddCost = async (item: Partial<CostItem>) => {
     if (!isAdmin || !activeSheet) return;
     try {
-      const res = await fetch(`/api/sheets/${activeSheet.id}/costs`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-user-role': user.role
-        },
-        body: JSON.stringify(item)
-      });
-      if (!res.ok) throw new Error('Falha ao registrar despesa');
-      const created: CostItem = await res.json();
+      const created = await createExpense(activeSheet.id, item);
 
       setDatabase((prev) => ({
         ...prev,
@@ -239,16 +208,7 @@ function AppContent() {
   const handleUpdateCost = async (id: string, updated: Partial<CostItem>) => {
     if (!isAdmin || !activeSheet) return;
     try {
-      const res = await fetch(`/api/sheets/${activeSheet.id}/costs/${id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-user-role': user.role
-        },
-        body: JSON.stringify(updated)
-      });
-      if (!res.ok) throw new Error('Falha ao atualizar despesa');
-      const saved: CostItem = await res.json();
+      const saved = await updateExpense(id, updated);
 
       setDatabase((prev) => ({
         ...prev,
@@ -270,11 +230,7 @@ function AppContent() {
   const handleDeleteCost = async (id: string) => {
     if (!isAdmin || !activeSheet) return;
     try {
-      const res = await fetch(`/api/sheets/${activeSheet.id}/costs/${id}`, {
-        method: 'DELETE',
-        headers: { 'x-user-role': user.role }
-      });
-      if (!res.ok) throw new Error('Falha ao remover despesa');
+      await removeExpense(id);
 
       setDatabase((prev) => ({
         ...prev,
@@ -297,16 +253,7 @@ function AppContent() {
   const handleAddCategory = async (category: Partial<CategoryDefinition>) => {
     if (!isAdmin) return;
     try {
-      const res = await fetch('/api/categories', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-user-role': user.role
-        },
-        body: JSON.stringify(category)
-      });
-      if (!res.ok) throw new Error('Falha ao criar categoria');
-      const created: CategoryDefinition = await res.json();
+      const created = await createCategory(category);
       setDatabase((prev) => ({
         ...prev,
         settings: {
@@ -322,11 +269,7 @@ function AppContent() {
   const handleDeleteCategory = async (id: string) => {
     if (!isAdmin) return;
     try {
-      const res = await fetch(`/api/categories/${id}`, {
-        method: 'DELETE',
-        headers: { 'x-user-role': user.role }
-      });
-      if (!res.ok) throw new Error('Falha ao remover categoria');
+      await removeCategory(id);
       setDatabase((prev) => ({
         ...prev,
         settings: {

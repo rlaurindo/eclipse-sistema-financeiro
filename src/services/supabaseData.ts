@@ -38,7 +38,7 @@ export async function fetchDatabaseFromSupabase(): Promise<AppDatabase> {
   const expensesByPeriod = new Map<string, CostItem[]>();
   for (const row of expensesResult.data || []) {
     const list = expensesByPeriod.get(row.period_id) || [];
-    list.push({ id: row.id, date: row.expense_date, category: categoryNames.get(row.category_id) || 'outros', subCategory: row.subcategory, name: row.name, amount: Number(row.amount), paymentMethod: row.payment_method, note: row.note, paidFromFund: row.paid_from_fund });
+    list.push({ id: row.id, date: row.expense_date, category: categoryNames.get(row.category_id) || row.subcategory || 'outros', subCategory: row.subcategory, name: row.name, amount: Number(row.amount), paymentMethod: row.payment_method, note: row.note, paidFromFund: row.paid_from_fund });
     expensesByPeriod.set(row.period_id, list);
   }
   const partners = (partnersResult.data || []).map((row) => ({ id: row.id, name: row.name, percentage: Number(row.percentage) }));
@@ -61,4 +61,131 @@ export async function fetchDatabaseFromSupabase(): Promise<AppDatabase> {
       defaultCategories: [], customCategories: categories
     }
   };
+}
+
+async function getCurrentUserId(): Promise<string> {
+  if (!supabase) throw new Error('Supabase não configurado.');
+  const { data, error } = await supabase.auth.getUser();
+  if (error || !data.user) throw error || new Error('Sessão inválida.');
+  return data.user.id;
+}
+
+async function resolveCategoryId(organizationId: string, name: string | undefined, type: 'entry' | 'expense'): Promise<string | null> {
+  if (!supabase || !name?.trim()) return null;
+  const normalized = name.trim();
+  const { data: existing, error: selectError } = await supabase
+    .from('categories')
+    .select('id,name')
+    .eq('organization_id', organizationId)
+    .eq('type', type);
+  if (selectError) throw selectError;
+  const match = existing?.find((row) => row.name.localeCompare(normalized, undefined, { sensitivity: 'accent' }) === 0);
+  if (match) return match.id;
+  const { data: created, error } = await supabase
+    .from('categories')
+    .insert({ organization_id: organizationId, name: normalized, type })
+    .select('id')
+    .single();
+  if (error) throw error;
+  return created.id;
+}
+
+export async function createCategory(category: Partial<CategoryDefinition>): Promise<CategoryDefinition> {
+  if (!supabase) throw new Error('Supabase não configurado.');
+  const organizationId = await getOrganizationId();
+  const { data, error } = await supabase.from('categories').insert({
+    organization_id: organizationId,
+    name: category.name?.trim(),
+    type: category.type,
+    color: category.color || null,
+    icon: category.icon || null,
+    description: category.description || null
+  }).select('id,name,type,color,icon,description').single();
+  if (error) throw error;
+  return data as CategoryDefinition;
+}
+
+export async function removeCategory(id: string): Promise<void> {
+  if (!supabase) throw new Error('Supabase não configurado.');
+  const organizationId = await getOrganizationId();
+  const { error } = await supabase.from('categories').delete().eq('id', id).eq('organization_id', organizationId);
+  if (error) throw error;
+}
+
+export async function createRevenue(periodId: string, item: Partial<RevenueItem>): Promise<RevenueItem> {
+  if (!supabase) throw new Error('Supabase não configurado.');
+  const organizationId = await getOrganizationId();
+  const categoryId = await resolveCategoryId(organizationId, item.category, 'entry');
+  const { data, error } = await supabase.from('revenues').insert({
+    organization_id: organizationId, period_id: periodId, entry_date: item.date || null,
+    client: item.client?.trim(), project: item.project || null, category_id: categoryId,
+    description: item.description || null, amount: item.amount, status: item.status || 'previsto',
+    payment_method: item.paymentMethod || null, notes: item.notes || null, created_by: await getCurrentUserId()
+  }).select('*').single();
+  if (error) throw error;
+  return { id: data.id, date: data.entry_date, client: data.client, project: data.project, category: item.category, description: data.description, amount: Number(data.amount), status: data.status, paymentMethod: data.payment_method, notes: data.notes };
+}
+
+export async function updateRevenue(id: string, item: Partial<RevenueItem>): Promise<RevenueItem> {
+  if (!supabase) throw new Error('Supabase não configurado.');
+  const organizationId = await getOrganizationId();
+  const categoryId = item.category === undefined ? undefined : await resolveCategoryId(organizationId, item.category, 'entry');
+  const changes: Record<string, unknown> = {};
+  if (item.date !== undefined) changes.entry_date = item.date || null;
+  if (item.client !== undefined) changes.client = item.client.trim();
+  if (item.project !== undefined) changes.project = item.project || null;
+  if (item.category !== undefined) changes.category_id = categoryId;
+  if (item.description !== undefined) changes.description = item.description || null;
+  if (item.amount !== undefined) changes.amount = item.amount;
+  if (item.status !== undefined) changes.status = item.status;
+  if (item.paymentMethod !== undefined) changes.payment_method = item.paymentMethod || null;
+  if (item.notes !== undefined) changes.notes = item.notes || null;
+  const { data, error } = await supabase.from('revenues').update(changes).eq('id', id).eq('organization_id', organizationId).select('*').single();
+  if (error) throw error;
+  return { id: data.id, date: data.entry_date, client: data.client, project: data.project, category: item.category, description: data.description, amount: Number(data.amount), status: data.status, paymentMethod: data.payment_method, notes: data.notes };
+}
+
+export async function removeRevenue(id: string): Promise<void> {
+  if (!supabase) throw new Error('Supabase não configurado.');
+  const organizationId = await getOrganizationId();
+  const { error } = await supabase.from('revenues').delete().eq('id', id).eq('organization_id', organizationId);
+  if (error) throw error;
+}
+
+export async function createExpense(periodId: string, item: Partial<CostItem>): Promise<CostItem> {
+  if (!supabase) throw new Error('Supabase não configurado.');
+  const organizationId = await getOrganizationId();
+  const categoryId = await resolveCategoryId(organizationId, item.category, 'expense');
+  const { data, error } = await supabase.from('expenses').insert({
+    organization_id: organizationId, period_id: periodId, expense_date: item.date || null,
+    category_id: categoryId, subcategory: item.category || item.subCategory || null,
+    name: item.name?.trim(), amount: item.amount, payment_method: item.paymentMethod || null,
+    note: item.note || null, paid_from_fund: item.paidFromFund || false, created_by: await getCurrentUserId()
+  }).select('*').single();
+  if (error) throw error;
+  return { id: data.id, date: data.expense_date, category: item.category || data.subcategory || 'outros', subCategory: data.subcategory, name: data.name, amount: Number(data.amount), paymentMethod: data.payment_method, note: data.note, paidFromFund: data.paid_from_fund };
+}
+
+export async function updateExpense(id: string, item: Partial<CostItem>): Promise<CostItem> {
+  if (!supabase) throw new Error('Supabase não configurado.');
+  const organizationId = await getOrganizationId();
+  const categoryId = item.category === undefined ? undefined : await resolveCategoryId(organizationId, item.category, 'expense');
+  const changes: Record<string, unknown> = {};
+  if (item.date !== undefined) changes.expense_date = item.date || null;
+  if (item.category !== undefined) { changes.category_id = categoryId; changes.subcategory = item.category; }
+  if (item.name !== undefined) changes.name = item.name.trim();
+  if (item.amount !== undefined) changes.amount = item.amount;
+  if (item.paymentMethod !== undefined) changes.payment_method = item.paymentMethod || null;
+  if (item.note !== undefined) changes.note = item.note || null;
+  if (item.paidFromFund !== undefined) changes.paid_from_fund = item.paidFromFund;
+  const { data, error } = await supabase.from('expenses').update(changes).eq('id', id).eq('organization_id', organizationId).select('*').single();
+  if (error) throw error;
+  return { id: data.id, date: data.expense_date, category: item.category || data.subcategory || 'outros', subCategory: data.subcategory, name: data.name, amount: Number(data.amount), paymentMethod: data.payment_method, note: data.note, paidFromFund: data.paid_from_fund };
+}
+
+export async function removeExpense(id: string): Promise<void> {
+  if (!supabase) throw new Error('Supabase não configurado.');
+  const organizationId = await getOrganizationId();
+  const { error } = await supabase.from('expenses').delete().eq('id', id).eq('organization_id', organizationId);
+  if (error) throw error;
 }
