@@ -50,6 +50,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isPasswordRecovery, setIsPasswordRecovery] = useState(false);
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
+  const [usersList, setUsersList] = useState<UserAccount[]>([]);
   const [viewPreferences, setViewPreferences] = useState<ViewPreferences>(() => {
     const saved = localStorage.getItem('app_view_preferences');
     if (!saved) return defaultViewPreferences;
@@ -112,10 +113,47 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
     return error ? { success: false, error: error.message } : { success: true };
   };
-  const register = async (_name: string, _email: string, _password: string, _role: UserRole) => ({ success: false, error: 'O cadastro público está desativado. Crie utilizadores no Supabase.' });
+  const callUserAdmin = async (body: Record<string, unknown>) => {
+    if (!supabase) return { data: null, error: 'Supabase não configurado.' };
+    const { data, error } = await supabase.functions.invoke('admin-users', { body });
+    return { data, error: error?.message || data?.error || null };
+  };
+  const refreshUsers = async () => {
+    if (!supabase || user.role !== 'admin') { setUsersList([]); return; }
+    const { data, error } = await callUserAdmin({ action: 'list' });
+    if (error) { console.error('Não foi possível carregar os utilizadores.', error); return; }
+    setUsersList((data?.users || []).map((item: any) => ({
+      id: item.id,
+      email: item.email || '',
+      name: item.name || item.email?.split('@')[0] || 'Utilizador',
+      role: item.role === 'admin' ? 'admin' : 'user',
+      createdAt: item.createdAt,
+      lastLoginAt: item.lastLoginAt
+    })));
+  };
+  const register = async (name: string, email: string, password: string, role: UserRole) => {
+    if (user.role !== 'admin') return { success: false, error: 'Apenas administradores podem criar utilizadores.' };
+    const { error } = await callUserAdmin({ action: 'create', name, email, password, role: role === 'admin' ? 'admin' : 'viewer' });
+    if (error) return { success: false, error };
+    await refreshUsers();
+    return { success: true };
+  };
   const logout = () => { if (supabase) void supabase.auth.signOut(); setUser(anonymousUser); setAuthModalOpen(false); };
-  const unsupportedAdminOperation = async () => ({ success: false, error: 'Faça a gestão de utilizadores no Supabase.' });
-  const refreshUsers = async () => {};
+  const updateUserRole = async (id: string, newRole: UserRole, name?: string, email?: string) => {
+    if (user.role !== 'admin') return { success: false, error: 'Apenas administradores podem alterar utilizadores.' };
+    const { error } = await callUserAdmin({ action: 'update', userId: id, role: newRole === 'admin' ? 'admin' : 'viewer', name, email });
+    if (error) return { success: false, error };
+    await refreshUsers();
+    return { success: true };
+  };
+  const deleteUser = async (id: string) => {
+    if (user.role !== 'admin') return { success: false, error: 'Apenas administradores podem remover utilizadores.' };
+    if (id === user.id) return { success: false, error: 'Não pode remover a própria conta.' };
+    const { error } = await callUserAdmin({ action: 'delete', userId: id });
+    if (error) return { success: false, error };
+    await refreshUsers();
+    return { success: true };
+  };
   const switchRole = () => false;
   const togglePrivacyMode = () => setViewPreferences((prev) => ({ ...prev, privacyMode: !prev.privacyMode }));
   const parseValue = (val: number | string | undefined | null) => typeof val === 'number' ? val : parseFloat(String(val ?? '').replace(',', '.')) || 0;
@@ -131,11 +169,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const isAuthenticated = Boolean(user.id);
   const isAdmin = isAuthenticated && user.role === 'admin';
   const isReadOnly = !isAdmin;
+  useEffect(() => { if (isAdmin) void refreshUsers(); else setUsersList([]); }, [isAdmin, user.id]);
   return <AuthContext.Provider value={{
     user, isAuthenticated, authLoading, isPasswordRecovery,
     authConfigurationError: isSupabaseConfigured ? '' : 'Configure VITE_SUPABASE_URL e VITE_SUPABASE_PUBLISHABLE_KEY no Netlify.',
     isAdmin, isReadOnly, isViewer: isReadOnly, login, requestPasswordReset, updatePassword, register, switchRole, logout,
-    usersList: [], refreshUsers, updateUserRole: unsupportedAdminOperation, deleteUser: unsupportedAdminOperation,
+    usersList, refreshUsers, updateUserRole, deleteUser,
     authModalOpen, setAuthModalOpen, authMode, setAuthMode, viewPreferences, setViewPreferences,
     togglePrivacyMode, formatCurrency, formatNumber, formatPercent, formatDate
   }}>{children}</AuthContext.Provider>;

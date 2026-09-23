@@ -41,7 +41,7 @@ const emptyDatabase: AppDatabase = {
 };
 
 function AppContent() {
-  const { user, isAdmin, isAuthenticated, authLoading, isPasswordRecovery, authModalOpen, setAuthModalOpen } = useAuth();
+  const { user, isAdmin, isAuthenticated, authLoading, isPasswordRecovery, authModalOpen, setAuthModalOpen, usersList, register, updateUserRole, deleteUser } = useAuth();
   const [activeTab, setActiveTab] = useState<ActiveTab>('dashboard');
   const [activeSheetId, setActiveSheetId] = useState<string>('');
   
@@ -343,20 +343,8 @@ function AppContent() {
   const handleCreateUser = async (userData: Partial<UserAccount>) => {
     if (!isAdmin) return;
     try {
-      const res = await fetch('/api/auth/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(userData)
-      });
-      if (!res.ok) {
-        const errData = await res.json();
-        throw new Error(errData.error || 'Erro ao registrar usuário');
-      }
-      const created = await res.json();
-      setDatabase((prev) => ({
-        ...prev,
-        users: [...prev.users, created]
-      }));
+      const result = await register(userData.name || '', userData.email || '', userData.password || '', userData.role || 'user');
+      if (!result.success) throw new Error(result.error || 'Erro ao registrar utilizador');
       alert('Usuário cadastrado com sucesso!');
     } catch (err: any) {
       alert('Erro ao cadastrar usuário: ' + err.message);
@@ -366,19 +354,8 @@ function AppContent() {
   const handleUpdateUserRole = async (id: string, role: 'admin' | 'user') => {
     if (!isAdmin) return;
     try {
-      const res = await fetch(`/api/auth/users/${id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-user-role': user.role
-        },
-        body: JSON.stringify({ role })
-      });
-      if (!res.ok) throw new Error('Falha ao alterar perfil de usuário');
-      setDatabase((prev) => ({
-        ...prev,
-        users: prev.users.map((u) => (u.id === id ? { ...u, role } : u))
-      }));
+      const result = await updateUserRole(id, role);
+      if (!result.success) throw new Error(result.error || 'Falha ao alterar perfil de utilizador');
     } catch (err: any) {
       alert('Erro ao alterar perfil: ' + err.message);
     }
@@ -387,15 +364,8 @@ function AppContent() {
   const handleDeleteUser = async (id: string) => {
     if (!isAdmin) return;
     try {
-      const res = await fetch(`/api/auth/users/${id}`, {
-        method: 'DELETE',
-        headers: { 'x-user-role': user.role }
-      });
-      if (!res.ok) throw new Error('Falha ao remover usuário');
-      setDatabase((prev) => ({
-        ...prev,
-        users: prev.users.filter((u) => u.id !== id)
-      }));
+      const result = await deleteUser(id);
+      if (!result.success) throw new Error(result.error || 'Falha ao remover utilizador');
     } catch (err: any) {
       alert('Erro ao remover usuário: ' + err.message);
     }
@@ -571,7 +541,7 @@ function AppContent() {
           {activeTab === 'control_panel' && (
             <ControlPanelView
               settings={database.settings}
-              users={database.users}
+              users={usersList}
               categories={categories}
               sheets={database.sheets}
               activeSheet={activeSheet}
