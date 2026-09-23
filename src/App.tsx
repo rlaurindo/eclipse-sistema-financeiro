@@ -22,7 +22,7 @@ import {
   ActiveTab 
 } from './types.ts';
 import { RefreshCw } from 'lucide-react';
-import { createCategory, createExpense, createRevenue, fetchDatabaseFromSupabase, removeCategory, removeExpense, removeRevenue, updateExpense, updateRevenue } from './services/supabaseData.ts';
+import { createCategory, createExpense, createRevenue, fetchDatabaseFromSupabase, removeCategory, removeExpense, removeRevenue, saveSystemSettings, updateExpense, updateRevenue } from './services/supabaseData.ts';
 
 const emptyDatabase: AppDatabase = {
   users: [],
@@ -348,17 +348,8 @@ function AppContent() {
   const handleUpdateSettings = async (newSettings: Partial<SystemSettings>) => {
     if (!isAdmin) return;
     try {
-      const res = await fetch('/api/settings', {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-user-role': user.role
-        },
-        body: JSON.stringify(newSettings)
-      });
-      if (!res.ok) throw new Error('Falha ao salvar parâmetros');
-      const saved = await res.json();
-      setDatabase((prev) => ({ ...prev, settings: saved }));
+      const saved = await saveSystemSettings(newSettings);
+      setDatabase((prev) => ({ ...prev, settings: { ...prev.settings, ...saved } }));
     } catch (err: any) {
       alert('Erro ao atualizar configurações: ' + err.message);
     }

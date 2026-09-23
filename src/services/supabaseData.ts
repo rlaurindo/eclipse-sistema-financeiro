@@ -189,3 +189,47 @@ export async function removeExpense(id: string): Promise<void> {
   const { error } = await supabase.from('expenses').delete().eq('id', id).eq('organization_id', organizationId);
   if (error) throw error;
 }
+
+export async function saveSystemSettings(settings: Partial<AppDatabase['settings']>): Promise<Partial<AppDatabase['settings']>> {
+  if (!supabase) throw new Error('Supabase não configurado.');
+  const organizationId = await getOrganizationId();
+
+  const organizationChanges: Record<string, unknown> = {};
+  if (settings.companyName !== undefined) organizationChanges.name = settings.companyName.trim();
+  if (settings.currency !== undefined) organizationChanges.currency = settings.currency;
+  if (Object.keys(organizationChanges).length) {
+    const { error } = await supabase.from('organizations').update(organizationChanges).eq('id', organizationId);
+    if (error) throw error;
+  }
+
+  const financialSettings: Record<string, unknown> = { organization_id: organizationId };
+  if (settings.accountCurrentBalance !== undefined) financialSettings.account_current_balance = settings.accountCurrentBalance;
+  if (settings.defaultIrcRate !== undefined) financialSettings.default_irc_rate = settings.defaultIrcRate;
+  if (settings.defaultFundReservePercentage !== undefined) financialSettings.default_fund_reserve_percentage = settings.defaultFundReservePercentage;
+  if (Object.keys(financialSettings).length > 1) {
+    const { error } = await supabase.from('company_settings').upsert(financialSettings, { onConflict: 'organization_id' });
+    if (error) throw error;
+  }
+
+  let savedPartners = settings.partners;
+  if (settings.partners) {
+    const { data: existing, error: existingError } = await supabase.from('partners').select('id').eq('organization_id', organizationId);
+    if (existingError) throw existingError;
+    const existingIds = new Set((existing || []).map((partner) => partner.id));
+    savedPartners = [];
+    for (const partner of settings.partners) {
+      const payload = { organization_id: organizationId, name: partner.name.trim(), percentage: partner.percentage, active: true };
+      if (existingIds.has(partner.id)) {
+        const { data, error } = await supabase.from('partners').update(payload).eq('id', partner.id).eq('organization_id', organizationId).select('id,name,percentage').single();
+        if (error) throw error;
+        savedPartners.push({ id: data.id, name: data.name, percentage: Number(data.percentage) });
+      } else {
+        const { data, error } = await supabase.from('partners').insert(payload).select('id,name,percentage').single();
+        if (error) throw error;
+        savedPartners.push({ id: data.id, name: data.name, percentage: Number(data.percentage) });
+      }
+    }
+  }
+
+  return { ...settings, partners: savedPartners };
+}
