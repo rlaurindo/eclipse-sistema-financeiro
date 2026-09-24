@@ -116,7 +116,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const callUserAdmin = async (body: Record<string, unknown>) => {
     if (!supabase) return { data: null, error: 'Supabase não configurado.' };
     const { data, error } = await supabase.functions.invoke('admin-users', { body });
-    return { data, error: error?.message || data?.error || null };
+    let message = data?.error || error?.message || null;
+    const response = (error as { context?: Response } | null)?.context;
+    if (response) {
+      try {
+        const payload = await response.clone().json();
+        if (payload?.error) message = payload.error;
+      } catch {
+        // Mantém a mensagem original quando a resposta não contém JSON.
+      }
+    }
+    if (message && /already.*registered|already exists|email.*exists/i.test(message)) {
+      message = 'Este e-mail já está cadastrado no Supabase. Utilize a conta existente ou escolha outro e-mail.';
+    }
+    return { data, error: message };
   };
   const refreshUsers = async () => {
     if (!supabase || user.role !== 'admin') { setUsersList([]); return; }
