@@ -233,3 +233,15 @@ export async function saveSystemSettings(settings: Partial<AppDatabase['settings
 
   return { ...settings, partners: savedPartners };
 }
+
+export async function setFinancialResetPin(pin: string): Promise<void> {
+  if (!supabase) throw new Error('Supabase não configurado.');
+  const { error } = await supabase.rpc('set_financial_reset_pin', { new_pin: pin });
+  if (error) throw error;
+}
+
+export async function resetFinancialData(pin: string): Promise<void> {
+  if (!supabase) throw new Error('Supabase não configurado.');
+  const { error } = await supabase.rpc('reset_financial_data', { reset_pin: pin });
+  if (error) throw error;
+}

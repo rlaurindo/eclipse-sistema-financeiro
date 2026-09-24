@@ -104,7 +104,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       badge: 'Gestão',
       badgeColor: 'bg-purple-100 text-purple-800 border-purple-200'
     }
-  ];
+  ].filter((item) => item.id !== 'control_panel' || isAdmin);
 
   return (
     <>

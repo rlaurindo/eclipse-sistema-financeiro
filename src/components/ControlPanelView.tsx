@@ -35,7 +35,8 @@ interface ControlPanelViewProps {
   onCreateUser: (user: Partial<UserAccount>) => Promise<void>;
   onUpdateUserRole: (id: string, role: 'admin' | 'user') => Promise<void>;
   onDeleteUser: (id: string) => Promise<void>;
-  onResetDatabase: () => Promise<void>;
+  onSetResetPin: (pin: string) => Promise<void>;
+  onResetDatabase: (pin: string) => Promise<void>;
   onOpenHistoricalImport: () => void;
 }
 
@@ -51,6 +52,7 @@ export const ControlPanelView: React.FC<ControlPanelViewProps> = ({
   onCreateUser,
   onUpdateUserRole,
   onDeleteUser,
+  onSetResetPin,
   onResetDatabase,
   onOpenHistoricalImport
 }) => {
@@ -62,6 +64,9 @@ export const ControlPanelView: React.FC<ControlPanelViewProps> = ({
   const [newCatType, setNewCatType] = useState<'expense' | 'entry'>('expense');
   const [newCatColor, setNewCatColor] = useState('#3b82f6');
   const [catSubmitting, setCatSubmitting] = useState(false);
+  const [newResetPin, setNewResetPin] = useState('');
+  const [resetPin, setResetPin] = useState('');
+  const [securitySubmitting, setSecuritySubmitting] = useState(false);
 
   // --- User Form State ---
   const [newUserName, setNewUserName] = useState('');
@@ -658,22 +663,33 @@ export const ControlPanelView: React.FC<ControlPanelViewProps> = ({
               <div className="p-4 bg-rose-50 border border-rose-200 rounded-xl space-y-3">
                 <div className="font-bold text-rose-900 text-xs flex items-center gap-1">
                   <AlertTriangle className="w-3.5 h-3.5 text-rose-600" />
-                  Restaurar Base para Demonstração Inicial
+                  Zerar Dados Financeiros
                 </div>
                 <p className="text-[11px] text-rose-700">
-                  Restaura as planilhas e lançamentos padrão de AGOSTO 2026 e anteriores.
+                  Apaga períodos, entradas, despesas, categorias e parâmetros. Utilizadores e permissões são preservados.
                 </p>
+                <div className="space-y-2">
+                  <label className="block text-[11px] font-bold text-rose-900">Definir ou alterar PIN de segurança</label>
+                  <div className="flex gap-2">
+                    <input type="password" inputMode="numeric" pattern="[0-9]{4,8}" maxLength={8} value={newResetPin} onChange={(e) => setNewResetPin(e.target.value.replace(/\D/g, ''))} placeholder="4 a 8 algarismos" className="min-w-0 flex-1 rounded-lg border border-rose-200 bg-white px-3 py-2 text-xs" />
+                    <button type="button" disabled={securitySubmitting || newResetPin.length < 4} onClick={async () => { try { setSecuritySubmitting(true); await onSetResetPin(newResetPin); setNewResetPin(''); alert('PIN de segurança definido com sucesso.'); } catch { /* o handler apresenta o erro */ } finally { setSecuritySubmitting(false); } }} className="rounded-lg bg-slate-800 px-3 py-2 text-xs font-bold text-white disabled:opacity-40">Guardar PIN</button>
+                  </div>
+                </div>
+                <input type="password" inputMode="numeric" pattern="[0-9]{4,8}" maxLength={8} value={resetPin} onChange={(e) => setResetPin(e.target.value.replace(/\D/g, ''))} placeholder="Confirme o PIN para zerar" className="w-full rounded-lg border border-rose-300 bg-white px-3 py-2 text-xs" />
                 <button
                   type="button"
-                  onClick={() => {
-                    if (window.confirm('Tem certeza que deseja restaurar os dados originais? Todas as modificações locais serão substituídas.')) {
-                      onResetDatabase();
+                  disabled={securitySubmitting || resetPin.length < 4}
+                  onClick={async () => {
+                    if (window.confirm('Esta ação apagará definitivamente todos os dados financeiros. Deseja continuar?')) {
+                      try { setSecuritySubmitting(true); await onResetDatabase(resetPin); setResetPin(''); }
+                      catch { /* o handler apresenta o erro */ }
+                      finally { setSecuritySubmitting(false); }
                     }
                   }}
-                  className="flex items-center gap-2 px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold transition cursor-pointer"
+                  className="flex items-center gap-2 px-4 py-2 bg-rose-600 hover:bg-rose-700 disabled:opacity-40 text-white rounded-xl text-xs font-bold transition cursor-pointer"
                 >
                   <RefreshCw className="w-3.5 h-3.5" />
-                  <span>Restaurar Base Padrão</span>
+                  <span>{securitySubmitting ? 'A processar…' : 'Zerar Base Financeira'}</span>
                 </button>
               </div>
             )}

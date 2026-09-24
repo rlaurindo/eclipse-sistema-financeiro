@@ -22,7 +22,7 @@ import {
   ActiveTab 
 } from './types.ts';
 import { RefreshCw } from 'lucide-react';
-import { createCategory, createExpense, createRevenue, fetchDatabaseFromSupabase, removeCategory, removeExpense, removeRevenue, saveSystemSettings, updateExpense, updateRevenue } from './services/supabaseData.ts';
+import { createCategory, createExpense, createRevenue, fetchDatabaseFromSupabase, removeCategory, removeExpense, removeRevenue, resetFinancialData, saveSystemSettings, setFinancialResetPin, updateExpense, updateRevenue } from './services/supabaseData.ts';
 
 const emptyDatabase: AppDatabase = {
   users: [],
@@ -355,18 +355,22 @@ function AppContent() {
     }
   };
 
-  const handleResetDatabase = async () => {
+  const handleSetResetPin = async (pin: string) => {
+    if (!isAdmin) return;
+    try { await setFinancialResetPin(pin); }
+    catch (err: any) { alert('Erro ao definir PIN: ' + err.message); throw err; }
+  };
+
+  const handleResetDatabase = async (pin: string) => {
     if (!isAdmin) return;
     try {
-      const res = await fetch('/api/reset', {
-        method: 'POST',
-        headers: { 'x-user-role': user.role }
-      });
-      if (!res.ok) throw new Error('Falha ao restaurar banco');
+      await resetFinancialData(pin);
       await fetchData();
-      alert('Dados restaurados para o padrão de demonstração!');
+      setActiveTab('dashboard');
+      alert('Base financeira zerada com sucesso. Utilizadores e permissões foram preservados.');
     } catch (err: any) {
       alert('Erro ao restaurar dados: ' + err.message);
+      throw err;
     }
   };
 
@@ -472,7 +476,7 @@ function AppContent() {
           )}
 
           {/* TAB 4: PAINEL DE CONTROLE */}
-          {activeTab === 'control_panel' && (
+          {activeTab === 'control_panel' && isAdmin && (
             <ControlPanelView
               settings={database.settings}
               users={usersList}
@@ -485,6 +489,7 @@ function AppContent() {
               onCreateUser={handleCreateUser}
               onUpdateUserRole={handleUpdateUserRole}
               onDeleteUser={handleDeleteUser}
+              onSetResetPin={handleSetResetPin}
               onResetDatabase={handleResetDatabase}
               onOpenHistoricalImport={() => setHistoricalImportOpen(true)}
             />
