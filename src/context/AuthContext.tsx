@@ -14,6 +14,7 @@ interface AuthContextType {
   login: (email: string, password?: string) => Promise<{ success: boolean; error?: string }>;
   requestPasswordReset: (email: string) => Promise<{ success: boolean; error?: string }>;
   updatePassword: (password: string, options?: { signOut?: boolean }) => Promise<{ success: boolean; error?: string }>;
+  completeFirstAccess: (newPassword?: string) => Promise<{ success: boolean; error?: string }>;
   register: (name: string, email: string, password: string, role: UserRole) => Promise<{ success: boolean; error?: string }>;
   switchRole: (newRole: UserRole, pin?: string) => boolean;
   logout: () => void;
@@ -69,7 +70,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const { data: profile } = await supabase.from('profiles').select('name').eq('id', authUser.id).maybeSingle();
       if (profile?.name) profileName = profile.name;
     }
-    setUser({ id: authUser.id, email: authUser.email || '', name: profileName || authUser.email?.split('@')[0] || 'Utilizador', role });
+    setUser({
+      id: authUser.id,
+      email: authUser.email || '',
+      name: profileName || authUser.email?.split('@')[0] || 'Utilizador',
+      role,
+      firstAccessPending: authUser.user_metadata?.first_access_completed === false
+    });
   };
 
   useEffect(() => {
@@ -106,6 +113,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIsPasswordRecovery(false);
       setUser(anonymousUser);
     }
+    return { success: true };
+  };
+  const completeFirstAccess = async (newPassword?: string) => {
+    if (!supabase) return { success: false, error: 'Supabase não configurado.' };
+    const { data: current } = await supabase.auth.getUser();
+    const metadata = current.user?.user_metadata || {};
+    const attributes = {
+      ...(newPassword ? { password: newPassword } : {}),
+      data: { ...metadata, first_access_completed: true }
+    };
+    const { error } = await supabase.auth.updateUser(attributes);
+    if (error) return { success: false, error: error.message };
+    setUser((previous) => ({ ...previous, firstAccessPending: false }));
     return { success: true };
   };
   const requestPasswordReset = async (email: string) => {
@@ -188,7 +208,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   return <AuthContext.Provider value={{
     user, isAuthenticated, authLoading, isPasswordRecovery,
     authConfigurationError: isSupabaseConfigured ? '' : 'Configure VITE_SUPABASE_URL e VITE_SUPABASE_PUBLISHABLE_KEY no Netlify.',
-    isAdmin, isReadOnly, isViewer: isReadOnly, login, requestPasswordReset, updatePassword, register, switchRole, logout,
+    isAdmin, isReadOnly, isViewer: isReadOnly, login, requestPasswordReset, updatePassword, completeFirstAccess, register, switchRole, logout,
     usersList, refreshUsers, updateUserRole, deleteUser,
     authModalOpen, setAuthModalOpen, authMode, setAuthMode, viewPreferences, setViewPreferences,
     togglePrivacyMode, formatCurrency, formatNumber, formatPercent, formatDate

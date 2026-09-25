@@ -12,7 +12,7 @@ export const LoginGate: React.FC = () => {
   const [error, setError] = useState('');
   const [passwordConfirmation, setPasswordConfirmation] = useState('');
   const [success, setSuccess] = useState('');
-  const [passwordLinkMode, setPasswordLinkMode] = useState<'first-access' | 'recovery' | null>(null);
+  const [recoveryMode, setRecoveryMode] = useState(false);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.hash.replace(/^#/, ''));
@@ -53,11 +53,7 @@ export const LoginGate: React.FC = () => {
     setError('');
     setSuccess('');
     const result = await requestPasswordReset(email);
-    if (result.success) {
-      setSuccess(passwordLinkMode === 'first-access'
-        ? 'Se o e-mail estiver registado, receberá um link para criar a sua palavra-passe.'
-        : 'Se o e-mail estiver registado, receberá um novo link de recuperação.');
-    }
+    if (result.success) setSuccess('Se o e-mail estiver registado, receberá um novo link de recuperação.');
     else setError(result.error || 'Não foi possível enviar o link de recuperação.');
     setLoading(false);
   };
@@ -70,11 +66,9 @@ export const LoginGate: React.FC = () => {
           <h1 className="text-xl font-black text-slate-900">Gestão Financeira</h1>
           <p className="mt-1 text-sm text-slate-500">{isPasswordRecovery
             ? 'Defina uma nova palavra-passe para a sua conta.'
-            : passwordLinkMode === 'first-access'
-              ? 'Use o e-mail cadastrado para criar a sua palavra-passe.'
-              : passwordLinkMode === 'recovery'
-                ? 'Receba um novo link de recuperação por e-mail.'
-                : 'Inicie sessão para aceder ao sistema.'}</p>
+            : recoveryMode
+              ? 'Receba um novo link de recuperação por e-mail.'
+              : 'Inicie sessão para aceder ao sistema.'}</p>
         </div>
 
         {authConfigurationError && (
@@ -83,7 +77,7 @@ export const LoginGate: React.FC = () => {
         {error && <div className="mb-4 rounded-xl border border-red-200 bg-red-50 p-3 text-xs text-red-700">{error}</div>}
         {success && <div className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-800">{success}</div>}
 
-        <form onSubmit={isPasswordRecovery ? handlePasswordUpdate : passwordLinkMode ? handleResetRequest : handleSubmit} className="space-y-4">
+        <form onSubmit={isPasswordRecovery ? handlePasswordUpdate : recoveryMode ? handleResetRequest : handleSubmit} className="space-y-4">
           {!isPasswordRecovery && (
           <label className="block text-xs font-bold text-slate-700">
             E-mail
@@ -93,7 +87,7 @@ export const LoginGate: React.FC = () => {
             </div>
           </label>
           )}
-          {!passwordLinkMode && <label className="block text-xs font-bold text-slate-700">
+          {!recoveryMode && <label className="block text-xs font-bold text-slate-700">
             {isPasswordRecovery ? 'Nova palavra-passe' : 'Palavra-passe'}
             <div className="relative mt-1.5">
               <Lock className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
@@ -115,27 +109,20 @@ export const LoginGate: React.FC = () => {
           <button type="submit" disabled={loading || Boolean(authConfigurationError)} className="w-full rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50">
             {loading ? 'A processar…' : isPasswordRecovery
               ? 'Guardar nova palavra-passe'
-              : passwordLinkMode === 'first-access'
-                ? 'Enviar link para criar senha'
-                : passwordLinkMode === 'recovery'
-                  ? 'Enviar novo link'
-                  : 'Entrar no sistema'}
+              : recoveryMode
+                ? 'Enviar novo link'
+                : 'Entrar no sistema'}
           </button>
           {!isPasswordRecovery && (
             <div className="space-y-2 text-center">
-              {passwordLinkMode ? (
-                <button type="button" onClick={() => { setPasswordLinkMode(null); setError(''); setSuccess(''); }} className="w-full text-xs font-bold text-blue-700 hover:text-blue-800">
+              {recoveryMode ? (
+                <button type="button" onClick={() => { setRecoveryMode(false); setError(''); setSuccess(''); }} className="w-full text-xs font-bold text-blue-700 hover:text-blue-800">
                   Voltar ao início de sessão
                 </button>
               ) : (
-                <>
-                  <button type="button" onClick={() => { setPasswordLinkMode('first-access'); setError(''); setSuccess(''); }} className="w-full rounded-xl border border-blue-200 bg-blue-50 px-4 py-2.5 text-xs font-bold text-blue-700 hover:bg-blue-100">
-                    Primeiro acesso / Criar palavra-passe
-                  </button>
-                  <button type="button" onClick={() => { setPasswordLinkMode('recovery'); setError(''); setSuccess(''); }} className="w-full text-xs font-bold text-slate-600 hover:text-blue-800">
-                    Esqueci-me da palavra-passe
-                  </button>
-                </>
+                <button type="button" onClick={() => { setRecoveryMode(true); setError(''); setSuccess(''); }} className="w-full text-xs font-bold text-slate-600 hover:text-blue-800">
+                  Esqueci-me da palavra-passe
+                </button>
               )}
             </div>
           )}

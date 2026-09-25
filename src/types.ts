@@ -30,6 +30,7 @@ export interface UserSession {
   role: UserRole;
   name: string;
   email: string;
+  firstAccessPending?: boolean;
 }
 
 export interface CategoryDefinition {

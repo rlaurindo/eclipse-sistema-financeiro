@@ -11,6 +11,7 @@ import { NewSheetModal } from './components/NewSheetModal.tsx';
 import { SettingsModal } from './components/SettingsModal.tsx';
 import { LoginGate } from './components/LoginGate.tsx';
 import { HistoricalImportModal } from './components/HistoricalImportModal.tsx';
+import { FirstAccessModal } from './components/FirstAccessModal.tsx';
 import { 
   AppDatabase, 
   CostSheet, 
@@ -546,6 +547,7 @@ function AppContent() {
         onResetData={handleResetDatabase}
       />
       <HistoricalImportModal isOpen={historicalImportOpen} onClose={() => setHistoricalImportOpen(false)} onImported={fetchData} />
+      <FirstAccessModal />
     </div>
   );
 }

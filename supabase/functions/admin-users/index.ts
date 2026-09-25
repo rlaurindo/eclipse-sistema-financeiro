@@ -73,7 +73,7 @@ Deno.serve(async (request) => {
       email,
       password,
       email_confirm: true,
-      user_metadata: { name },
+      user_metadata: { name, first_access_completed: false },
     });
     if (createError || !created.user) return json({ error: createError?.message || 'Não foi possível criar o utilizador.' }, 400);
 
