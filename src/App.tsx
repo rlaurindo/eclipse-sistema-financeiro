@@ -55,6 +55,12 @@ function AppContent() {
   const [settingsModalOpen, setSettingsModalOpen] = useState(false);
   const [historicalImportOpen, setHistoricalImportOpen] = useState(false);
 
+  useEffect(() => {
+    if (!isAdmin && activeTab !== 'dashboard') {
+      setActiveTab('dashboard');
+    }
+  }, [activeTab, isAdmin]);
+
   // Fetch data from backend
   const fetchData = async () => {
     try {
@@ -454,7 +460,7 @@ function AppContent() {
           )}
 
           {/* TAB 2: ENTRADAS */}
-          {activeTab === 'entries' && activeSheet && (
+          {activeTab === 'entries' && activeSheet && isAdmin && (
             <EntriesView
               activeSheet={activeSheet}
               categories={categories}
@@ -465,7 +471,7 @@ function AppContent() {
           )}
 
           {/* TAB 3: DESPESAS */}
-          {activeTab === 'expenses' && activeSheet && (
+          {activeTab === 'expenses' && activeSheet && isAdmin && (
             <ExpensesView
               activeSheet={activeSheet}
               categories={categories}
