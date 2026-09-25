@@ -41,7 +41,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   setActiveTab,
   settings
 }) => {
-  const { formatCurrency, viewPreferences } = useAuth();
+  const { formatCurrency, viewPreferences, isAdmin } = useAuth();
 
   // Calculations for active period
   const totalRevenues = useMemo(() => {
@@ -166,22 +166,24 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         </div>
 
         {/* Quick Actions Buttons */}
-        <div className="flex items-center gap-2.5 flex-wrap">
-          <button
-            onClick={() => setActiveTab('entries')}
-            className="flex items-center gap-1.5 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition shadow-sm cursor-pointer"
-          >
-            <ArrowDownLeft className="w-4 h-4" />
-            <span>+ Nova Entrada</span>
-          </button>
-          <button
-            onClick={() => setActiveTab('expenses')}
-            className="flex items-center gap-1.5 px-3.5 py-2 bg-red-600 hover:bg-red-500 text-white rounded-xl text-xs font-bold transition shadow-sm cursor-pointer"
-          >
-            <ArrowUpRight className="w-4 h-4" />
-            <span>+ Nova Despesa</span>
-          </button>
-        </div>
+        {isAdmin && (
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <button
+              onClick={() => setActiveTab('entries')}
+              className="flex items-center gap-1.5 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition shadow-sm cursor-pointer"
+            >
+              <ArrowDownLeft className="w-4 h-4" />
+              <span>+ Nova Entrada</span>
+            </button>
+            <button
+              onClick={() => setActiveTab('expenses')}
+              className="flex items-center gap-1.5 px-3.5 py-2 bg-red-600 hover:bg-red-500 text-white rounded-xl text-xs font-bold transition shadow-sm cursor-pointer"
+            >
+              <ArrowUpRight className="w-4 h-4" />
+              <span>+ Nova Despesa</span>
+            </button>
+          </div>
+        )}
       </div>
 
       {/* 4 MAIN KPI CARDS */}
