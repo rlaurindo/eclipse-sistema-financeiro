@@ -23,6 +23,44 @@ import { FileSpreadsheet } from 'lucide-react';
 import { SystemSettings, UserAccount, CategoryDefinition, CostSheet } from '../types.ts';
 import { useAuth } from '../context/AuthContext.tsx';
 
+const CATEGORY_PALETTE = ['#8b5cf6', '#f59e0b', '#06b6d4', '#f43f5e', '#10b981', '#f97316', '#6366f1', '#14b8a6'];
+
+const getCategoryColor = (name: string, type: 'expense' | 'entry') => {
+  const normalizedName = name.toLocaleLowerCase('pt-PT');
+  const semanticColors: Array<[string[], string]> = [
+    [['alojamento', 'estadia', 'hotel'], '#8b5cf6'],
+    [['imposto', 'niss', 'irs', 'irc'], '#ef4444'],
+    [['carro', 'carrinha', 'veículo', 'combustível'], '#3b82f6'],
+    [['ferramenta', 'epi', 'material'], '#10b981'],
+    [['salário', 'equipa', 'funcionário'], '#06b6d4'],
+    [['cartão', 'banco', 'financeiro'], '#f59e0b'],
+    [['outro', 'diverso'], '#64748b']
+  ];
+
+  const semanticMatch = semanticColors.find(([keywords]) =>
+    keywords.some((keyword) => normalizedName.includes(keyword))
+  );
+  if (semanticMatch) return semanticMatch[1];
+
+  // Entradas sem uma correspondência conhecida começam pela família verde/teal.
+  const palette = type === 'entry'
+    ? ['#10b981', '#14b8a6', '#06b6d4', '#84cc16', ...CATEGORY_PALETTE]
+    : CATEGORY_PALETTE;
+  const hash = Array.from(normalizedName).reduce(
+    (value, character) => ((value * 31) + character.charCodeAt(0)) >>> 0,
+    0
+  );
+  return palette[hash % palette.length];
+};
+
+const hexToRgba = (hex: string, alpha: number) => {
+  const value = hex.replace('#', '');
+  const red = parseInt(value.slice(0, 2), 16);
+  const green = parseInt(value.slice(2, 4), 16);
+  const blue = parseInt(value.slice(4, 6), 16);
+  return `rgba(${red}, ${green}, ${blue}, ${alpha})`;
+};
+
 interface ControlPanelViewProps {
   settings: SystemSettings;
   users: UserAccount[];
@@ -333,15 +371,21 @@ export const ControlPanelView: React.FC<ControlPanelViewProps> = ({
             </p>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {categories.map((cat) => (
+              {categories.map((cat) => {
+                const categoryColor = getCategoryColor(cat.name, cat.type);
+                return (
                 <div
                   key={cat.id}
-                  className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between gap-2"
+                  className="p-3.5 border rounded-xl flex items-center justify-between gap-2 transition-colors"
+                  style={{
+                    backgroundColor: hexToRgba(categoryColor, 0.055),
+                    borderColor: hexToRgba(categoryColor, 0.2)
+                  }}
                 >
                   <div className="flex items-center gap-2.5 min-w-0">
                     <div
                       className="w-3.5 h-3.5 rounded-full shrink-0"
-                      style={{ backgroundColor: cat.color || '#3b82f6' }}
+                      style={{ backgroundColor: categoryColor }}
                     />
                     <div className="min-w-0">
                       <div className="font-bold text-slate-900 text-xs truncate">{cat.name}</div>
@@ -363,7 +407,8 @@ export const ControlPanelView: React.FC<ControlPanelViewProps> = ({
                     </button>
                   )}
                 </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         </div>
