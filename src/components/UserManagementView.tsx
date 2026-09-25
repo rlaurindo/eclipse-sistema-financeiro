@@ -24,6 +24,7 @@ import {
   ArrowRight
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.tsx';
+import { useAppDialog } from '../context/AppDialogContext.tsx';
 import { UserAccount, UserRole, SystemSettings } from '../types.ts';
 
 interface UserManagementViewProps {
@@ -35,6 +36,7 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
   settings,
   onUpdateSettings
 }) => {
+  const { confirmAction } = useAppDialog();
   const { 
     user: currentUser, 
     isAdmin, 
@@ -120,7 +122,11 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
       showFeedbackMsg('error', 'Você não pode excluir sua própria conta enquanto estiver conectado.');
       return;
     }
-    if (!window.confirm(`Deseja realmente remover o usuário "${targetUser.name}" (${targetUser.email})?`)) {
+    if (!await confirmAction({
+      title: 'Remover utilizador',
+      message: `Deseja remover o utilizador "${targetUser.name}" (${targetUser.email})?`,
+      confirmLabel: 'Remover utilizador'
+    })) {
       return;
     }
 

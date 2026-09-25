@@ -23,6 +23,7 @@ import {
 } from './types.ts';
 import { RefreshCw } from 'lucide-react';
 import { createCategory, createExpense, createRevenue, fetchDatabaseFromSupabase, removeCategory, removeExpense, removeRevenue, resetFinancialData, saveSystemSettings, setFinancialResetPin, updateExpense, updateRevenue } from './services/supabaseData.ts';
+import { useAppDialog } from './context/AppDialogContext.tsx';
 
 const emptyDatabase: AppDatabase = {
   users: [],
@@ -42,6 +43,7 @@ const emptyDatabase: AppDatabase = {
 
 function AppContent() {
   const { user, isAdmin, isAuthenticated, authLoading, isPasswordRecovery, authModalOpen, setAuthModalOpen, usersList, register, updateUserRole, deleteUser } = useAuth();
+  const { showAlert } = useAppDialog();
   const [activeTab, setActiveTab] = useState<ActiveTab>('dashboard');
   const [activeSheetId, setActiveSheetId] = useState<string>('');
   
@@ -140,7 +142,7 @@ function AppContent() {
         })
       }));
     } catch (err: any) {
-      alert('Erro ao salvar entrada: ' + err.message);
+      showAlert('Erro ao salvar entrada: ' + err.message);
     }
   };
 
@@ -162,7 +164,7 @@ function AppContent() {
         })
       }));
     } catch (err: any) {
-      alert('Erro ao atualizar: ' + err.message);
+      showAlert('Erro ao atualizar: ' + err.message);
     }
   };
 
@@ -184,7 +186,7 @@ function AppContent() {
         })
       }));
     } catch (err: any) {
-      alert('Erro ao excluir: ' + err.message);
+      showAlert('Erro ao excluir: ' + err.message);
     }
   };
 
@@ -207,7 +209,7 @@ function AppContent() {
         })
       }));
     } catch (err: any) {
-      alert('Erro ao salvar despesa: ' + err.message);
+      showAlert('Erro ao salvar despesa: ' + err.message);
     }
   };
 
@@ -229,7 +231,7 @@ function AppContent() {
         })
       }));
     } catch (err: any) {
-      alert('Erro ao atualizar despesa: ' + err.message);
+      showAlert('Erro ao atualizar despesa: ' + err.message);
     }
   };
 
@@ -251,7 +253,7 @@ function AppContent() {
         })
       }));
     } catch (err: any) {
-      alert('Erro ao excluir: ' + err.message);
+      showAlert('Erro ao excluir: ' + err.message);
     }
   };
 
@@ -268,7 +270,7 @@ function AppContent() {
         }
       }));
     } catch (err: any) {
-      alert('Erro ao criar categoria: ' + err.message);
+      showAlert('Erro ao criar categoria: ' + err.message);
     }
   };
 
@@ -284,7 +286,7 @@ function AppContent() {
         }
       }));
     } catch (err: any) {
-      alert('Erro ao remover categoria: ' + err.message);
+      showAlert('Erro ao remover categoria: ' + err.message);
     }
   };
 
@@ -294,9 +296,9 @@ function AppContent() {
     try {
       const result = await register(userData.name || '', userData.email || '', userData.password || '', userData.role || 'user');
       if (!result.success) throw new Error(result.error || 'Erro ao registrar utilizador');
-      alert('Usuário cadastrado com sucesso!');
+      showAlert('Usuário cadastrado com sucesso!');
     } catch (err: any) {
-      alert('Erro ao cadastrar usuário: ' + err.message);
+      showAlert('Erro ao cadastrar usuário: ' + err.message);
     }
   };
 
@@ -306,7 +308,7 @@ function AppContent() {
       const result = await updateUserRole(id, role);
       if (!result.success) throw new Error(result.error || 'Falha ao alterar perfil de utilizador');
     } catch (err: any) {
-      alert('Erro ao alterar perfil: ' + err.message);
+      showAlert('Erro ao alterar perfil: ' + err.message);
     }
   };
 
@@ -316,7 +318,7 @@ function AppContent() {
       const result = await deleteUser(id);
       if (!result.success) throw new Error(result.error || 'Falha ao remover utilizador');
     } catch (err: any) {
-      alert('Erro ao remover usuário: ' + err.message);
+      showAlert('Erro ao remover usuário: ' + err.message);
     }
   };
 
@@ -347,7 +349,7 @@ function AppContent() {
       setActiveSheetId(created.id);
       setActiveTab('dashboard');
     } catch (err: any) {
-      alert('Erro ao criar período: ' + err.message);
+      showAlert('Erro ao criar período: ' + err.message);
     }
   };
 
@@ -357,14 +359,14 @@ function AppContent() {
       const saved = await saveSystemSettings(newSettings);
       setDatabase((prev) => ({ ...prev, settings: { ...prev.settings, ...saved } }));
     } catch (err: any) {
-      alert('Erro ao atualizar configurações: ' + err.message);
+      showAlert('Erro ao atualizar configurações: ' + err.message);
     }
   };
 
   const handleSetResetPin = async (pin: string) => {
     if (!isAdmin) return;
     try { await setFinancialResetPin(pin); }
-    catch (err: any) { alert('Erro ao definir PIN: ' + err.message); throw err; }
+    catch (err: any) { showAlert('Erro ao definir PIN: ' + err.message); throw err; }
   };
 
   const handleResetDatabase = async (pin: string) => {
@@ -373,9 +375,9 @@ function AppContent() {
       await resetFinancialData(pin);
       await fetchData();
       setActiveTab('dashboard');
-      alert('Base financeira zerada com sucesso. Utilizadores e permissões foram preservados.');
+      showAlert('Base financeira zerada com sucesso. Utilizadores e permissões foram preservados.');
     } catch (err: any) {
-      alert('Erro ao restaurar dados: ' + err.message);
+      showAlert('Erro ao restaurar dados: ' + err.message);
       throw err;
     }
   };

@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { CostSheet, RevenueItem, CategoryDefinition } from '../types.ts';
 import { useAuth } from '../context/AuthContext.tsx';
+import { useAppDialog } from '../context/AppDialogContext.tsx';
 
 interface EntriesViewProps {
   activeSheet: CostSheet;
@@ -35,6 +36,7 @@ export const EntriesView: React.FC<EntriesViewProps> = ({
   onUpdateRevenue,
   onDeleteRevenue
 }) => {
+  const { confirmAction } = useAppDialog();
   const { isAdmin, formatCurrency } = useAuth();
 
   // Form State for new Entry
@@ -547,8 +549,12 @@ export const EntriesView: React.FC<EntriesViewProps> = ({
                               <Edit3 className="w-3.5 h-3.5" />
                             </button>
                             <button
-                              onClick={() => {
-                                if (window.confirm(`Tem certeza que deseja excluir a entrada "${rev.client}" no valor de ${formatCurrency(rev.amount)}?`)) {
+                              onClick={async () => {
+                                if (await confirmAction({
+                                  title: 'Excluir entrada',
+                                  message: `Deseja excluir a entrada "${rev.client}" no valor de ${formatCurrency(rev.amount)}?`,
+                                  confirmLabel: 'Excluir entrada'
+                                })) {
                                   onDeleteRevenue(rev.id);
                                 }
                               }}

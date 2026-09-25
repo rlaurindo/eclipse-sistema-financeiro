@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Plus, Copy, FileSpreadsheet } from 'lucide-react';
 import { CostSheet } from '../types.ts';
+import { useAppDialog } from '../context/AppDialogContext.tsx';
 
 interface NewSheetModalProps {
   isOpen: boolean;
@@ -21,6 +22,7 @@ export const NewSheetModal: React.FC<NewSheetModalProps> = ({
   sheets,
   onCreateSheet
 }) => {
+  const { showAlert } = useAppDialog();
   const [name, setName] = useState('');
   const [periodType, setPeriodType] = useState<'mensal' | 'semestral' | 'trimestral' | 'anual'>('mensal');
   const [year, setYear] = useState<number>(2026);
@@ -45,7 +47,7 @@ export const NewSheetModal: React.FC<NewSheetModalProps> = ({
       onClose();
     } catch (err) {
       console.error(err);
-      alert('Erro ao criar planilha.');
+      showAlert('Erro ao criar planilha.');
     } finally {
       setLoading(false);
     }

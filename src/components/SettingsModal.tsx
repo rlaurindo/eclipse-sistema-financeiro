@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Settings, Users, Plus, Trash2, RotateCcw, Save, ShieldAlert } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.tsx';
 import { SystemSettings } from '../types.ts';
+import { useAppDialog } from '../context/AppDialogContext.tsx';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -19,6 +20,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onResetData
 }) => {
   const { isAdmin } = useAuth();
+  const { showAlert } = useAppDialog();
   const [formData, setFormData] = useState<SystemSettings>(settings);
   const [isSaving, setIsSaving] = useState(false);
   const [resetConfirm, setResetConfirm] = useState(false);
@@ -74,7 +76,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       onClose();
     } catch (err) {
       console.error(err);
-      alert('Erro ao salvar configurações.');
+      showAlert('Erro ao salvar configurações.');
     } finally {
       setIsSaving(false);
     }
@@ -87,7 +89,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       setResetConfirm(false);
       onClose();
     } catch (err) {
-      alert('Erro ao restaurar base de dados.');
+      showAlert('Erro ao restaurar base de dados.');
     }
   };
 

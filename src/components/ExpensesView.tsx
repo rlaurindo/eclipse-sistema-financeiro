@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { CostSheet, CostItem, CategoryDefinition } from '../types.ts';
 import { useAuth } from '../context/AuthContext.tsx';
+import { useAppDialog } from '../context/AppDialogContext.tsx';
 
 interface ExpensesViewProps {
   activeSheet: CostSheet;
@@ -47,6 +48,7 @@ export const ExpensesView: React.FC<ExpensesViewProps> = ({
   onUpdateCost,
   onDeleteCost
 }) => {
+  const { confirmAction } = useAppDialog();
   const { isAdmin, formatCurrency } = useAuth();
 
   // Form State
@@ -522,8 +524,12 @@ export const ExpensesView: React.FC<ExpensesViewProps> = ({
                               <Edit3 className="w-3.5 h-3.5" />
                             </button>
                             <button
-                              onClick={() => {
-                                if (window.confirm(`Tem certeza que deseja excluir o custo "${cost.name}" de ${formatCurrency(cost.amount)}?`)) {
+                              onClick={async () => {
+                                if (await confirmAction({
+                                  title: 'Excluir despesa',
+                                  message: `Deseja excluir a despesa "${cost.name}" no valor de ${formatCurrency(cost.amount)}?`,
+                                  confirmLabel: 'Excluir despesa'
+                                })) {
                                   onDeleteCost(cost.id);
                                 }
                               }}

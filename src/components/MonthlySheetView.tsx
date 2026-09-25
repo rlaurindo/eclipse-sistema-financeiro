@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { useAppDialog } from '../context/AppDialogContext.tsx';
 import { 
   Plus, 
   Trash2, 
@@ -45,6 +46,7 @@ export const MonthlySheetView: React.FC<MonthlySheetViewProps> = ({
   onDeleteSheet
 }) => {
   const { isAdmin } = useAuth();
+  const { showAlert } = useAppDialog();
   const [currentSheet, setCurrentSheet] = useState<CostSheet>(sheet);
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
@@ -72,7 +74,7 @@ export const MonthlySheetView: React.FC<MonthlySheetViewProps> = ({
       setTimeout(() => setSaveSuccess(false), 3000);
     } catch (err) {
       console.error(err);
-      alert('Erro ao salvar alterações na planilha.');
+      showAlert('Erro ao salvar alterações na planilha.');
     } finally {
       setIsSaving(false);
     }

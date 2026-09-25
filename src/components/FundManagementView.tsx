@@ -15,6 +15,7 @@ import {
 import { useAuth } from '../context/AuthContext.tsx';
 import { CostSheet, FundExpenseItem } from '../types.ts';
 import { formatCurrency } from '../utils/formatters.ts';
+import { useAppDialog } from '../context/AppDialogContext.tsx';
 
 interface FundManagementViewProps {
   sheet: CostSheet;
@@ -26,6 +27,7 @@ export const FundManagementView: React.FC<FundManagementViewProps> = ({
   onUpdateSheet
 }) => {
   const { isAdmin } = useAuth();
+  const { showAlert } = useAppDialog();
   const [currentSheet, setCurrentSheet] = useState<CostSheet>(sheet);
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
@@ -65,7 +67,7 @@ export const FundManagementView: React.FC<FundManagementViewProps> = ({
       setTimeout(() => setSaveSuccess(false), 3000);
     } catch (err) {
       console.error(err);
-      alert('Erro ao salvar dados do fundo.');
+      showAlert('Erro ao salvar dados do fundo.');
     } finally {
       setIsSaving(false);
     }

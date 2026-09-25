@@ -22,6 +22,7 @@ import {
 import { FileSpreadsheet } from 'lucide-react';
 import { SystemSettings, UserAccount, CategoryDefinition, CostSheet } from '../types.ts';
 import { useAuth } from '../context/AuthContext.tsx';
+import { useAppDialog } from '../context/AppDialogContext.tsx';
 
 const CATEGORY_PALETTE = ['#8b5cf6', '#f59e0b', '#06b6d4', '#f43f5e', '#10b981', '#f97316', '#6366f1', '#14b8a6'];
 
@@ -95,6 +96,7 @@ export const ControlPanelView: React.FC<ControlPanelViewProps> = ({
   onOpenHistoricalImport
 }) => {
   const { user: currentUser, isAdmin, formatCurrency } = useAuth();
+  const { confirmAction, showAlert } = useAppDialog();
   const [activeSection, setActiveSection] = useState<'categories' | 'users' | 'finance' | 'backup'>('categories');
 
   // --- Category Form State ---
@@ -548,8 +550,12 @@ export const ControlPanelView: React.FC<ControlPanelViewProps> = ({
 
                       {isAdmin && !isCurrent && (
                         <button
-                          onClick={() => {
-                            if (window.confirm(`Excluir o usuário "${u.name}"?`)) {
+                          onClick={async () => {
+                            if (await confirmAction({
+                              title: 'Remover utilizador',
+                              message: `Deseja remover o utilizador "${u.name}"?`,
+                              confirmLabel: 'Remover utilizador'
+                            })) {
                               onDeleteUser(u.id);
                             }
                           }}
@@ -718,7 +724,7 @@ export const ControlPanelView: React.FC<ControlPanelViewProps> = ({
                   <label className="block text-[11px] font-bold text-rose-900">Definir ou alterar PIN de segurança</label>
                   <div className="flex gap-2">
                     <input type="password" inputMode="numeric" pattern="[0-9]{4,8}" maxLength={8} value={newResetPin} onChange={(e) => setNewResetPin(e.target.value.replace(/\D/g, ''))} placeholder="4 a 8 algarismos" className="min-w-0 flex-1 rounded-lg border border-rose-200 bg-white px-3 py-2 text-xs" />
-                    <button type="button" disabled={securitySubmitting || newResetPin.length < 4} onClick={async () => { try { setSecuritySubmitting(true); await onSetResetPin(newResetPin); setNewResetPin(''); alert('PIN de segurança definido com sucesso.'); } catch { /* o handler apresenta o erro */ } finally { setSecuritySubmitting(false); } }} className="rounded-lg bg-slate-800 px-3 py-2 text-xs font-bold text-white disabled:opacity-40">Guardar PIN</button>
+                    <button type="button" disabled={securitySubmitting || newResetPin.length < 4} onClick={async () => { try { setSecuritySubmitting(true); await onSetResetPin(newResetPin); setNewResetPin(''); showAlert('PIN de segurança definido com sucesso.'); } catch { /* o handler apresenta o erro */ } finally { setSecuritySubmitting(false); } }} className="rounded-lg bg-slate-800 px-3 py-2 text-xs font-bold text-white disabled:opacity-40">Guardar PIN</button>
                   </div>
                 </div>
                 <input type="password" inputMode="numeric" pattern="[0-9]{4,8}" maxLength={8} value={resetPin} onChange={(e) => setResetPin(e.target.value.replace(/\D/g, ''))} placeholder="Confirme o PIN para zerar" className="w-full rounded-lg border border-rose-300 bg-white px-3 py-2 text-xs" />
