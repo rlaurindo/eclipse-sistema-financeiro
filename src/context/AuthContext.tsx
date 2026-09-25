@@ -13,7 +13,7 @@ interface AuthContextType {
   isViewer: boolean;
   login: (email: string, password?: string) => Promise<{ success: boolean; error?: string }>;
   requestPasswordReset: (email: string) => Promise<{ success: boolean; error?: string }>;
-  updatePassword: (password: string) => Promise<{ success: boolean; error?: string }>;
+  updatePassword: (password: string, options?: { signOut?: boolean }) => Promise<{ success: boolean; error?: string }>;
   register: (name: string, email: string, password: string, role: UserRole) => Promise<{ success: boolean; error?: string }>;
   switchRole: (newRole: UserRole, pin?: string) => boolean;
   logout: () => void;
@@ -97,13 +97,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setAuthModalOpen(false);
     return { success: true };
   };
-  const updatePassword = async (password: string) => {
+  const updatePassword = async (password: string, options?: { signOut?: boolean }) => {
     if (!supabase) return { success: false, error: 'Supabase não configurado.' };
     const { error } = await supabase.auth.updateUser({ password });
     if (error) return { success: false, error: error.message };
-    await supabase.auth.signOut();
-    setIsPasswordRecovery(false);
-    setUser(anonymousUser);
+    if (options?.signOut !== false) {
+      await supabase.auth.signOut();
+      setIsPasswordRecovery(false);
+      setUser(anonymousUser);
+    }
     return { success: true };
   };
   const requestPasswordReset = async (email: string) => {

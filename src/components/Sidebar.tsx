@@ -397,7 +397,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <button
                   onClick={onOpenAuthModal}
                   className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition cursor-pointer"
-                  title="Trocar Perfil / Login"
+                  title="Minha conta"
                 >
                   <User className="w-3.5 h-3.5" />
                 </button>
