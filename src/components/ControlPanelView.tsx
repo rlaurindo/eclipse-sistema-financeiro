@@ -105,6 +105,7 @@ export const ControlPanelView: React.FC<ControlPanelViewProps> = ({
   const [newResetPin, setNewResetPin] = useState('');
   const [resetPin, setResetPin] = useState('');
   const [securitySubmitting, setSecuritySubmitting] = useState(false);
+  const [showResetConfirmation, setShowResetConfirmation] = useState(false);
 
   // --- User Form State ---
   const [newUserName, setNewUserName] = useState('');
@@ -724,13 +725,7 @@ export const ControlPanelView: React.FC<ControlPanelViewProps> = ({
                 <button
                   type="button"
                   disabled={securitySubmitting || resetPin.length < 4}
-                  onClick={async () => {
-                    if (window.confirm('Esta ação apagará definitivamente todos os dados financeiros. Deseja continuar?')) {
-                      try { setSecuritySubmitting(true); await onResetDatabase(resetPin); setResetPin(''); }
-                      catch { /* o handler apresenta o erro */ }
-                      finally { setSecuritySubmitting(false); }
-                    }
-                  }}
+                  onClick={() => setShowResetConfirmation(true)}
                   className="flex items-center gap-2 px-4 py-2 bg-rose-600 hover:bg-rose-700 disabled:opacity-40 text-white rounded-xl text-xs font-bold transition cursor-pointer"
                 >
                   <RefreshCw className="w-3.5 h-3.5" />
@@ -738,6 +733,76 @@ export const ControlPanelView: React.FC<ControlPanelViewProps> = ({
                 </button>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {showResetConfirmation && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-[2px]"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="reset-confirmation-title"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget && !securitySubmitting) {
+              setShowResetConfirmation(false);
+            }
+          }}
+        >
+          <div className="w-full max-w-md overflow-hidden rounded-2xl border border-rose-200 bg-white shadow-2xl">
+            <div className="flex items-start gap-3 border-b border-rose-100 bg-rose-50 px-5 py-4">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-rose-100 text-rose-700">
+                <AlertTriangle className="h-5 w-5" />
+              </div>
+              <div>
+                <h3 id="reset-confirmation-title" className="text-base font-black text-slate-900">
+                  Confirmar limpeza da base financeira
+                </h3>
+                <p className="mt-1 text-xs leading-5 text-slate-600">
+                  Esta operação é definitiva e não poderá ser anulada.
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-3 px-5 py-4">
+              <p className="text-sm font-semibold text-slate-800">
+                Serão apagados todos os períodos, entradas, despesas, categorias e parâmetros financeiros.
+              </p>
+              <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-xs text-emerald-800">
+                Os utilizadores e as respetivas permissões serão preservados.
+              </div>
+            </div>
+
+            <div className="flex flex-col-reverse gap-2 border-t border-slate-100 bg-slate-50 px-5 py-4 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                disabled={securitySubmitting}
+                onClick={() => setShowResetConfirmation(false)}
+                className="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-xs font-bold text-slate-700 transition hover:bg-slate-100 disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                disabled={securitySubmitting}
+                onClick={async () => {
+                  try {
+                    setSecuritySubmitting(true);
+                    await onResetDatabase(resetPin);
+                    setResetPin('');
+                    setShowResetConfirmation(false);
+                  } catch {
+                    // O handler apresenta o erro e a janela permanece aberta para nova tentativa.
+                  } finally {
+                    setSecuritySubmitting(false);
+                  }
+                }}
+                className="flex items-center justify-center gap-2 rounded-xl bg-rose-600 px-4 py-2.5 text-xs font-bold text-white transition hover:bg-rose-700 disabled:opacity-50"
+              >
+                <RefreshCw className={`h-3.5 w-3.5 ${securitySubmitting ? 'animate-spin' : ''}`} />
+                {securitySubmitting ? 'A zerar dados…' : 'Sim, zerar dados'}
+              </button>
+            </div>
           </div>
         </div>
       )}
