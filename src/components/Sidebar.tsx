@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { ActiveTab, CostSheet } from '../types.ts';
 import { useAuth } from '../context/AuthContext.tsx';
+import { DeveloperCredit } from './DeveloperCredit.tsx';
 
 interface SidebarProps {
   activeTab: ActiveTab;
@@ -409,6 +410,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 </button>
               </div>
             </div>
+            <DeveloperCredit compact className="mt-3" />
           </div>
         </div>
       </aside>

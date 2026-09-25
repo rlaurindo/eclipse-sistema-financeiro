@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Eye, EyeOff, Lock, Mail } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.tsx';
+import { DeveloperCredit } from './DeveloperCredit.tsx';
 
 export const LoginGate: React.FC = () => {
   const { login, requestPasswordReset, updatePassword, isPasswordRecovery, authConfigurationError } = useAuth();
@@ -139,6 +140,9 @@ export const LoginGate: React.FC = () => {
             </div>
           )}
         </form>
+        <div className="mt-6 border-t border-slate-100 pt-5">
+          <DeveloperCredit />
+        </div>
       </section>
     </main>
   );
