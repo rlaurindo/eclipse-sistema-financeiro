@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { CheckCircle2, Eye, EyeOff, KeyRound, LogOut, Mail, ShieldCheck, User, X } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.tsx';
+import { getRoleLabel, isDeveloperAccount } from '../utils/userLabels.ts';
 
 interface AuthModalProps { isOpen: boolean; onClose: () => void; }
 
@@ -60,7 +61,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
           </div>
 
           <div className="grid grid-cols-2 gap-3">
-            <div className="rounded-xl border border-slate-200 p-3"><p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Perfil</p><p className="mt-1 flex items-center gap-1.5 text-xs font-black text-slate-800"><ShieldCheck className={`h-4 w-4 ${isAdmin ? 'text-blue-600' : 'text-slate-500'}`} />{isAdmin ? 'Administrador' : 'Leitor'}</p></div>
+            <div className="rounded-xl border border-slate-200 p-3"><p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Perfil</p><p className="mt-1 flex items-center gap-1.5 text-xs font-black text-slate-800"><ShieldCheck className={`h-4 w-4 ${isDeveloperAccount(user.email) ? 'text-violet-600' : isAdmin ? 'text-blue-600' : 'text-slate-500'}`} />{getRoleLabel(user.email, user.role, true)}</p></div>
             <div className="rounded-xl border border-slate-200 p-3"><p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Permissões</p><p className="mt-1 text-xs font-black text-slate-800">{isAdmin ? 'Leitura e edição' : 'Somente leitura'}</p></div>
           </div>
 

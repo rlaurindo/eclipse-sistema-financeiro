@@ -22,6 +22,7 @@ import {
 import { ActiveTab, CostSheet } from '../types.ts';
 import { useAuth } from '../context/AuthContext.tsx';
 import { DeveloperCredit } from './DeveloperCredit.tsx';
+import { getRoleLabel, isDeveloperAccount } from '../utils/userLabels.ts';
 
 interface SidebarProps {
   activeTab: ActiveTab;
@@ -140,7 +141,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             onClick={onOpenAuthModal}
             className="text-xs px-2.5 py-1 bg-slate-100 text-slate-700 rounded-lg font-bold cursor-pointer"
           >
-            {user.role.toUpperCase()}
+            {getRoleLabel(user.email, user.role)}
           </button>
         </div>
       </div>
@@ -386,9 +387,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     {user.name}
                   </div>
                   <span className={`text-[9px] font-black uppercase inline-block mt-0.5 ${
-                    isAdmin ? 'text-blue-600' : 'text-slate-500'
+                    isDeveloperAccount(user.email) ? 'text-violet-600' : isAdmin ? 'text-blue-600' : 'text-slate-500'
                   }`}>
-                    {user.role === 'admin' ? 'Administrador' : 'Leitor'}
+                    {getRoleLabel(user.email, user.role, true)}
                   </span>
                 </div>
               </div>

@@ -23,6 +23,7 @@ import { FileSpreadsheet } from 'lucide-react';
 import { SystemSettings, UserAccount, CategoryDefinition, CostSheet } from '../types.ts';
 import { useAuth } from '../context/AuthContext.tsx';
 import { useAppDialog } from '../context/AppDialogContext.tsx';
+import { getRoleLabel, isDeveloperAccount } from '../utils/userLabels.ts';
 
 const CATEGORY_PALETTE = ['#8b5cf6', '#f59e0b', '#06b6d4', '#f43f5e', '#10b981', '#f97316', '#6366f1', '#14b8a6'];
 
@@ -531,7 +532,7 @@ export const ControlPanelView: React.FC<ControlPanelViewProps> = ({
                     </div>
 
                     <div className="flex items-center gap-2 shrink-0">
-                      {isAdmin && !isCurrent ? (
+                      {isAdmin && !isCurrent && !isDeveloperAccount(u.email) ? (
                         <select
                           value={u.role}
                           onChange={(e) => onUpdateUserRole(u.id, e.target.value as any)}
@@ -542,9 +543,11 @@ export const ControlPanelView: React.FC<ControlPanelViewProps> = ({
                         </select>
                       ) : (
                         <span className={`px-2 py-0.5 rounded-md font-bold text-[10px] uppercase ${
-                          u.role === 'admin' ? 'bg-blue-100 text-blue-800' : 'bg-slate-100 text-slate-700'
+                          isDeveloperAccount(u.email)
+                            ? 'bg-violet-100 text-violet-800'
+                            : u.role === 'admin' ? 'bg-blue-100 text-blue-800' : 'bg-slate-100 text-slate-700'
                         }`}>
-                          {u.role.toUpperCase()}
+                          {getRoleLabel(u.email, u.role)}
                         </span>
                       )}
 

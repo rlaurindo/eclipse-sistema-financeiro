@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { UserRole, UserSession, UserAccount, ViewPreferences } from '../types.ts';
 import { isSupabaseConfigured, supabase } from '../lib/supabase.ts';
+import { isDeveloperAccount } from '../utils/userLabels.ts';
 
 interface AuthContextType {
   user: UserSession;
@@ -192,9 +193,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const switchRole = () => false;
   const togglePrivacyMode = () => setViewPreferences((prev) => ({ ...prev, privacyMode: !prev.privacyMode }));
   const parseValue = (val: number | string | undefined | null) => typeof val === 'number' ? val : parseFloat(String(val ?? '').replace(',', '.')) || 0;
-  const formatCurrency = (val: number | string | undefined | null) => viewPreferences.privacyMode ? '•••••• €' : new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(parseValue(val));
-  const formatNumber = (val: number | string | undefined | null) => viewPreferences.privacyMode ? '••••••' : new Intl.NumberFormat('pt-PT', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(parseValue(val));
-  const formatPercent = (val: number | string | undefined | null) => viewPreferences.privacyMode ? '••••••%' : `${parseValue(val).toFixed(1)}%`;
+  const shouldHideFinancialValues = viewPreferences.privacyMode || isDeveloperAccount(user.email);
+  const formatCurrency = (val: number | string | undefined | null) => shouldHideFinancialValues ? '•••••• €' : new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(parseValue(val));
+  const formatNumber = (val: number | string | undefined | null) => shouldHideFinancialValues ? '••••••' : new Intl.NumberFormat('pt-PT', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(parseValue(val));
+  const formatPercent = (val: number | string | undefined | null) => shouldHideFinancialValues ? '••••••%' : `${parseValue(val).toFixed(1)}%`;
   const formatDate = (isoDate: string | undefined) => {
     if (!isoDate) return '-';
     try { return new Date(isoDate).toLocaleDateString('pt-PT', { day: '2-digit', month: '2-digit', year: 'numeric' }); }

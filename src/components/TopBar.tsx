@@ -19,6 +19,7 @@ import {
   Filter
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.tsx';
+import { isDeveloperAccount } from '../utils/userLabels.ts';
 import { CostSheet, ActiveTab, SystemSettings } from '../types.ts';
 import { exportSheetToExcel } from '../utils/formatters.ts';
 
@@ -207,7 +208,7 @@ export const TopBar: React.FC<TopBarProps> = ({
           )}
 
           {/* Privacy Mode Quick Toggle */}
-          <button
+          {!isDeveloperAccount(user.email) && <button
             onClick={togglePrivacyMode}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-semibold transition cursor-pointer ${
               viewPreferences.privacyMode
@@ -227,7 +228,7 @@ export const TopBar: React.FC<TopBarProps> = ({
                 <span className="hidden sm:inline">Ocultar Valores</span>
               </>
             )}
-          </button>
+          </button>}
 
           {/* New Period Button (Admin only) */}
           {isAdmin && (
