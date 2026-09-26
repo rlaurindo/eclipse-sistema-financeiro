@@ -20,6 +20,7 @@ import {
 import { CostSheet, RevenueItem, CategoryDefinition } from '../types.ts';
 import { useAuth } from '../context/AuthContext.tsx';
 import { useAppDialog } from '../context/AppDialogContext.tsx';
+import { formatMonthYear, normalizeLookupKey } from '../utils/formatters.ts';
 
 interface EntriesViewProps {
   activeSheet: CostSheet;
@@ -62,15 +63,21 @@ export const EntriesView: React.FC<EntriesViewProps> = ({
   // Quick Preset Clients
   const quickClients = ['EMPRESA ESPANO', 'EMPRESA CNT', 'CIP', 'NOVAGENTE', 'OUTROS'];
 
-  // Categories available for entries
-  const entryCategories = useMemo(() => {
-    const custom = categories.filter((c) => c.type === 'entry').map((c) => c.name);
-    const defaults = ['Empreitada', 'Medição Mensal', 'Adiantamento', 'Serviços Extras', 'Outros'];
-    return Array.from(new Set([...defaults, ...custom]));
-  }, [categories]);
-
   // Revenues list & calculations
   const revenues = activeSheet?.revenues || [];
+
+  // Categories available for entries, deduplicated independently of case and accents.
+  const entryCategories = useMemo(() => {
+    const defaults = ['Empreitada', 'Medição Mensal', 'Adiantamento', 'Serviços Extras', 'Outros'];
+    const custom = categories.filter((c) => c.type === 'entry').map((c) => c.name);
+    const used = revenues.map((item) => item.category).filter(Boolean) as string[];
+    const unique = new Map<string, string>();
+    [...defaults, ...custom, ...used].forEach((name) => {
+      const key = normalizeLookupKey(name);
+      if (key && !unique.has(key)) unique.set(key, name);
+    });
+    return [...unique.values()];
+  }, [categories, revenues]);
 
   const filteredRevenues = useMemo(() => {
     return revenues.filter((item) => {
@@ -84,7 +91,7 @@ export const EntriesView: React.FC<EntriesViewProps> = ({
         (statusFilter === 'pago' && (item.status === 'pago' || !item.status)) ||
         (statusFilter === 'pendente' && (item.status === 'pendente' || item.status === 'previsto'));
 
-      const matchesCategory = categoryFilter === 'all' || item.category === categoryFilter;
+      const matchesCategory = categoryFilter === 'all' || normalizeLookupKey(item.category) === normalizeLookupKey(categoryFilter);
 
       return matchesSearch && matchesStatus && matchesCategory;
     });
@@ -402,9 +409,9 @@ export const EntriesView: React.FC<EntriesViewProps> = ({
           <table className="w-full text-left text-xs">
             <thead className="bg-slate-50 text-slate-500 font-bold uppercase tracking-wider border-b border-slate-200 text-[10px]">
               <tr>
-                <th className="py-3 px-4">Data / Mês</th>
-                <th className="py-3 px-4">Cliente / Empresa</th>
-                <th className="py-3 px-4">Obra / Projeto</th>
+                <th className="py-3 px-4">Mês / Ano</th>
+                <th className="py-3 px-4">Empresa</th>
+                <th className="py-3 px-4">Obra</th>
                 <th className="py-3 px-4">Categoria</th>
                 <th className="py-3 px-4 text-center">Status</th>
                 <th className="py-3 px-4 text-right">Valor (€)</th>
@@ -507,7 +514,7 @@ export const EntriesView: React.FC<EntriesViewProps> = ({
                   return (
                     <tr key={rev.id} className="hover:bg-slate-50/80 transition">
                       <td className="py-3 px-4 font-mono text-slate-500 text-[11px]">
-                        {rev.date || activeSheet?.name}
+                        {formatMonthYear(rev.date, activeSheet?.name)}
                       </td>
                       <td className="py-3 px-4 font-bold text-slate-900">
                         {rev.client}
@@ -535,7 +542,7 @@ export const EntriesView: React.FC<EntriesViewProps> = ({
                           <span>{isPaid ? 'RECEBIDO' : 'PENDENTE'}</span>
                         </button>
                       </td>
-                      <td className="py-3 px-4 text-right font-mono font-bold text-slate-900 text-sm">
+                      <td className="whitespace-nowrap py-3 px-4 text-right font-mono font-bold text-slate-900 text-sm">
                         {formatCurrency(rev.amount)}
                       </td>
                       <td className="py-3 px-4 text-center">

@@ -22,6 +22,7 @@ import {
 import { CostSheet, CostItem, CategoryDefinition } from '../types.ts';
 import { useAuth } from '../context/AuthContext.tsx';
 import { useAppDialog } from '../context/AppDialogContext.tsx';
+import { formatMonthYear, normalizeLookupKey } from '../utils/formatters.ts';
 
 interface ExpensesViewProps {
   activeSheet: CostSheet;
@@ -39,6 +40,18 @@ const DEFAULT_CATEGORY_LABELS: Record<string, { label: string; icon: any; color:
   ferramentas: { label: 'Ferramentas & EPIs', icon: Wrench, color: 'text-emerald-600', badge: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
   salarios: { label: 'Salários & Equipes', icon: Users, color: 'text-cyan-600', badge: 'bg-cyan-50 text-cyan-700 border-cyan-200' },
   outros: { label: 'Outras Despesas', icon: HelpCircle, color: 'text-slate-600', badge: 'bg-slate-50 text-slate-700 border-slate-200' }
+};
+
+const getExpenseCategoryKey = (value: string | undefined): string => {
+  const key = normalizeLookupKey(value);
+  if (/carro|carrinha/.test(key)) return 'carros';
+  if (/aloj|estadia/.test(key)) return 'alojamento';
+  if (/imposto|niss|irs/.test(key)) return 'impostos';
+  if (/cartao|banco/.test(key)) return 'cartao';
+  if (/ferrament|epi/.test(key)) return 'ferramentas';
+  if (/salario|equipe|equipa/.test(key)) return 'salarios';
+  if (/outro/.test(key)) return 'outros';
+  return key || 'outros';
 };
 
 export const ExpensesView: React.FC<ExpensesViewProps> = ({
@@ -80,14 +93,15 @@ export const ExpensesView: React.FC<ExpensesViewProps> = ({
     { name: 'IRS RETENÇÕES', cat: 'impostos' }
   ];
 
-  // Combined Category List
+  const costs = activeSheet?.costs || [];
+
+  // Combined Category List, deduplicated independently of case, accents and legacy labels.
   const allCategories = useMemo(() => {
     const defaultKeys = ['carros', 'alojamento', 'impostos', 'cartao', 'ferramentas', 'salarios', 'outros'];
-    const custom = categories.filter((c) => c.type === 'expense').map((c) => c.name.toLowerCase());
-    return Array.from(new Set([...defaultKeys, ...custom]));
-  }, [categories]);
-
-  const costs = activeSheet?.costs || [];
+    const custom = categories.filter((c) => c.type === 'expense').map((c) => getExpenseCategoryKey(c.name));
+    const used = costs.map((item) => getExpenseCategoryKey(item.category));
+    return Array.from(new Set([...defaultKeys, ...custom, ...used]));
+  }, [categories, costs]);
 
   const filteredCosts = useMemo(() => {
     return costs.filter((item) => {
@@ -96,7 +110,7 @@ export const ExpensesView: React.FC<ExpensesViewProps> = ({
         (item.note && item.note.toLowerCase().includes(searchQuery.toLowerCase())) ||
         (item.category && item.category.toLowerCase().includes(searchQuery.toLowerCase()));
 
-      const matchesCategory = selectedCategoryFilter === 'all' || item.category === selectedCategoryFilter;
+      const matchesCategory = selectedCategoryFilter === 'all' || getExpenseCategoryKey(item.category) === selectedCategoryFilter;
       const matchesPayment = paymentFilter === 'all' || item.paymentMethod === paymentFilter;
 
       return matchesSearch && matchesCategory && matchesPayment;
@@ -144,12 +158,13 @@ export const ExpensesView: React.FC<ExpensesViewProps> = ({
   };
 
   const getCategoryMeta = (catKey: string) => {
-    const key = (catKey || 'outros').toLowerCase();
+    const key = getExpenseCategoryKey(catKey);
     if (DEFAULT_CATEGORY_LABELS[key]) {
       return DEFAULT_CATEGORY_LABELS[key];
     }
+    const customLabel = categories.find((item) => item.type === 'expense' && getExpenseCategoryKey(item.name) === key)?.name;
     return {
-      label: catKey.toUpperCase(),
+      label: customLabel || catKey,
       icon: HelpCircle,
       color: 'text-indigo-600',
       badge: 'bg-indigo-50 text-indigo-700 border-indigo-200'
@@ -386,7 +401,7 @@ export const ExpensesView: React.FC<ExpensesViewProps> = ({
           <table className="w-full text-left text-xs">
             <thead className="bg-slate-50 text-slate-500 font-bold uppercase tracking-wider border-b border-slate-200 text-[10px]">
               <tr>
-                <th className="py-3 px-4">Data</th>
+                <th className="py-3 px-4">Mês / Ano</th>
                 <th className="py-3 px-4">Descrição da Despesa</th>
                 <th className="py-3 px-4">Categoria</th>
                 <th className="py-3 px-4">Conta / Pagamento</th>
@@ -430,7 +445,7 @@ export const ExpensesView: React.FC<ExpensesViewProps> = ({
                         </td>
                         <td className="py-2.5 px-4">
                           <select
-                            value={editForm.category || 'outros'}
+                            value={getExpenseCategoryKey(editForm.category || 'outros')}
                             onChange={(e) => setEditForm({ ...editForm, category: e.target.value })}
                             className="px-2 py-1 bg-white border border-slate-300 rounded text-xs"
                           >
@@ -493,13 +508,13 @@ export const ExpensesView: React.FC<ExpensesViewProps> = ({
                   return (
                     <tr key={cost.id} className="hover:bg-slate-50/80 transition">
                       <td className="py-3 px-4 font-mono text-slate-500 text-[11px]">
-                        {cost.date || activeSheet?.name}
+                        {formatMonthYear(cost.date, activeSheet?.name)}
                       </td>
                       <td className="py-3 px-4 font-bold text-slate-900">
                         {cost.name}
                       </td>
                       <td className="py-3 px-4">
-                        <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[10px] font-bold border ${meta.badge}`}>
+                        <span className={`inline-flex items-center gap-1 whitespace-nowrap px-2.5 py-0.5 rounded-md text-[10px] font-bold border ${meta.badge}`}>
                           <Icon className="w-3 h-3" />
                           <span>{meta.label}</span>
                         </span>
@@ -510,7 +525,7 @@ export const ExpensesView: React.FC<ExpensesViewProps> = ({
                       <td className="py-3 px-4 text-slate-500 max-w-xs truncate">
                         {cost.note || <span className="text-slate-300 italic">—</span>}
                       </td>
-                      <td className="py-3 px-4 text-right font-mono font-bold text-red-600 text-sm">
+                      <td className="whitespace-nowrap py-3 px-4 text-right font-mono font-bold text-red-600 text-sm">
                         {formatCurrency(cost.amount)}
                       </td>
                       <td className="py-3 px-4 text-center">

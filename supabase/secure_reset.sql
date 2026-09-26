@@ -61,3 +61,6 @@ revoke execute on function public.set_financial_reset_pin(text) from public, ano
 revoke execute on function public.reset_financial_data(text) from public, anon;
 grant execute on function public.set_financial_reset_pin(text) to authenticated;
 grant execute on function public.reset_financial_data(text) to authenticated;
+
+-- Atualiza imediatamente o cache de funções exposto pela API REST.
+notify pgrst, 'reload schema';

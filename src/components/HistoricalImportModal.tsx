@@ -1,31 +1,47 @@
 import React, { useState } from 'react';
-import { AlertTriangle, CheckCircle2, FileSpreadsheet, Upload, X } from 'lucide-react';
-import { ImportPreview, importHistoricalPeriods, parseHistoricalWorkbook } from '../services/historicalImport.ts';
+import { AlertTriangle, FileSpreadsheet, Upload, X } from 'lucide-react';
+import { ImportPreview, ImportProgress, importHistoricalPeriods, parseHistoricalWorkbook } from '../services/historicalImport.ts';
+import { useAppDialog } from '../context/AppDialogContext.tsx';
 
 interface Props { isOpen: boolean; onClose: () => void; onImported: () => Promise<void>; }
 
 export const HistoricalImportModal: React.FC<Props> = ({ isOpen, onClose, onImported }) => {
+  const { showAlert } = useAppDialog();
   const [preview, setPreview] = useState<ImportPreview | null>(null);
   const [fileName, setFileName] = useState('');
   const [error, setError] = useState('');
-  const [status, setStatus] = useState('');
   const [importing, setImporting] = useState(false);
+  const [progress, setProgress] = useState<ImportProgress | null>(null);
   if (!isOpen) return null;
+
+  const closeModal = () => {
+    if (importing) return;
+    setPreview(null);
+    setFileName('');
+    setError('');
+    setProgress(null);
+    onClose();
+  };
 
   const selectFile = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
-    setError(''); setStatus(''); setFileName(file.name);
+    setError(''); setProgress(null); setFileName(file.name);
     try { setPreview(parseHistoricalWorkbook(await file.arrayBuffer())); }
     catch (reason) { setPreview(null); setError(reason instanceof Error ? reason.message : 'Não foi possível analisar o ficheiro.'); }
   };
 
   const confirmImport = async () => {
     if (!preview?.periods.length) return;
-    setImporting(true); setError('');
+    setImporting(true); setError(''); setProgress({ completed: 0, total: preview.periods.length, label: 'A preparar a importação…' });
     try {
-      const result = await importHistoricalPeriods(preview);
-      setStatus(`${result.imported} período(s) importado(s); ${result.skipped} período(s) existente(s) ignorado(s).`);
+      const result = await importHistoricalPeriods(preview, setProgress);
+      const summary = `${result.imported} período(s) importado(s); ${result.skipped} período(s) existente(s) ignorado(s).`;
+      setPreview(null);
+      setFileName('');
+      setProgress(null);
+      onClose();
+      showAlert(`Importação concluída com sucesso. ${summary}`);
       await onImported();
     } catch (reason) { setError(reason instanceof Error ? reason.message : 'Falha ao importar.'); }
     finally { setImporting(false); }
@@ -35,7 +51,7 @@ export const HistoricalImportModal: React.FC<Props> = ({ isOpen, onClose, onImpo
     <div className="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl">
       <div className="flex items-start justify-between border-b border-slate-100 pb-4">
         <div><h2 className="flex items-center gap-2 text-lg font-black text-slate-900"><FileSpreadsheet className="h-5 w-5 text-emerald-600" />Importar histórico Excel</h2><p className="mt-1 text-xs text-slate-500">Analise o ficheiro antes de gravar períodos no Supabase.</p></div>
-        <button onClick={onClose} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100"><X className="h-5 w-5" /></button>
+        <button onClick={closeModal} disabled={importing} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 disabled:opacity-40"><X className="h-5 w-5" /></button>
       </div>
 
       <label className="mt-5 flex cursor-pointer items-center justify-center gap-2 rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 px-4 py-7 text-sm font-bold text-slate-700 hover:border-blue-400">
@@ -43,7 +59,6 @@ export const HistoricalImportModal: React.FC<Props> = ({ isOpen, onClose, onImpo
         <input type="file" accept=".xlsx,.xls" onChange={selectFile} className="hidden" />
       </label>
       {error && <div className="mt-4 rounded-xl border border-red-200 bg-red-50 p-3 text-xs text-red-700">{error}</div>}
-      {status && <div className="mt-4 flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-800"><CheckCircle2 className="h-4 w-4" />{status}</div>}
 
       {preview && <div className="mt-5 space-y-4">
         <div className="grid grid-cols-3 gap-3">
@@ -58,7 +73,36 @@ export const HistoricalImportModal: React.FC<Props> = ({ isOpen, onClose, onImpo
         </div>
       </div>}
 
-      <div className="mt-6 flex justify-end gap-3 border-t border-slate-100 pt-4"><button onClick={onClose} className="rounded-xl bg-slate-100 px-4 py-2 text-xs font-bold text-slate-700">Fechar</button><button onClick={confirmImport} disabled={!preview?.periods.length || importing || Boolean(status)} className="rounded-xl bg-blue-600 px-5 py-2 text-xs font-bold text-white disabled:opacity-40">{importing ? 'A importar…' : 'Confirmar importação'}</button></div>
+      <div className="sticky bottom-0 -mx-6 mt-6 border-t border-slate-100 bg-white/95 px-6 pb-1 pt-4 backdrop-blur-sm">
+        {progress && (
+          <div className="mb-3 rounded-xl border border-blue-200 bg-blue-50 p-3" aria-live="polite">
+            <div className="mb-2 flex items-center justify-between gap-3 text-xs font-bold text-blue-900">
+              <span className="truncate">{progress.label}</span>
+              <span className="shrink-0">{Math.round((progress.completed / Math.max(progress.total, 1)) * 100)}%</span>
+            </div>
+            <div
+              className="h-2.5 overflow-hidden rounded-full bg-blue-100"
+              role="progressbar"
+              aria-valuemin={0}
+              aria-valuemax={progress.total}
+              aria-valuenow={progress.completed}
+              aria-label="Progresso da importação"
+            >
+              <div
+                className="h-full rounded-full bg-blue-600 transition-[width] duration-300 ease-out"
+                style={{ width: `${(progress.completed / Math.max(progress.total, 1)) * 100}%` }}
+              />
+            </div>
+            <div className="mt-1.5 text-[10px] text-blue-700">
+              {progress.completed} de {progress.total} período(s) processado(s)
+            </div>
+          </div>
+        )}
+        <div className="flex justify-end gap-3">
+          <button onClick={closeModal} disabled={importing} className="rounded-xl bg-slate-100 px-4 py-2 text-xs font-bold text-slate-700 disabled:opacity-50">Fechar</button>
+          <button onClick={confirmImport} disabled={!preview?.periods.length || importing} className="rounded-xl bg-blue-600 px-5 py-2 text-xs font-bold text-white disabled:opacity-40">{importing ? 'A importar…' : 'Confirmar importação'}</button>
+        </div>
+      </div>
     </div>
   </div>;
 };

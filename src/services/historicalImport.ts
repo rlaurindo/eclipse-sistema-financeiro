@@ -6,6 +6,7 @@ export interface ImportLine { name: string; amount: number; category: string; no
 export interface ImportRevenue { client: string; amount: number; }
 export interface ImportPeriod { key: string; name: string; year: number; month: number; revenues: ImportRevenue[]; expenses: ImportLine[]; sourceSheet: string; }
 export interface ImportPreview { periods: ImportPeriod[]; ignoredSheets: string[]; warnings: string[]; }
+export interface ImportProgress { completed: number; total: number; label: string; }
 
 const monthNames = ['JANEIRO','FEVEREIRO','MARÇO','ABRIL','MAIO','JUNHO','JULHO','AGOSTO','SETEMBRO','OUTUBRO','NOVEMBRO','DEZEMBRO'];
 const normalize = (value: unknown) => String(value ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/�/g, '').trim().toUpperCase();
@@ -112,8 +113,13 @@ export function parseHistoricalWorkbook(buffer: ArrayBuffer): ImportPreview {
   return { periods: [...periods.values()].sort((a, b) => (a.year - b.year) || (a.month - b.month)), ignoredSheets, warnings };
 }
 
-export async function importHistoricalPeriods(preview: ImportPreview): Promise<{ imported: number; skipped: number }> {
+export async function importHistoricalPeriods(
+  preview: ImportPreview,
+  onProgress?: (progress: ImportProgress) => void
+): Promise<{ imported: number; skipped: number }> {
   if (!supabase) throw new Error('Supabase não configurado.');
+  const total = preview.periods.length;
+  onProgress?.({ completed: 0, total, label: 'A preparar a importação…' });
   const organizationId = await getOrganizationId();
   const { data: auth } = await supabase.auth.getUser();
   const { data: existingPeriods, error: existingError } = await supabase.from('financial_periods').select('year,month').eq('organization_id', organizationId);
@@ -122,8 +128,13 @@ export async function importHistoricalPeriods(preview: ImportPreview): Promise<{
   let imported = 0;
   let skipped = 0;
 
-  for (const period of preview.periods) {
-    if (existingKeys.has(period.key)) { skipped++; continue; }
+  for (const [index, period] of preview.periods.entries()) {
+    onProgress?.({ completed: index, total, label: `A processar ${period.name}…` });
+    if (existingKeys.has(period.key)) {
+      skipped++;
+      onProgress?.({ completed: index + 1, total, label: `${period.name} já existia e foi ignorado.` });
+      continue;
+    }
     const { data: createdPeriod, error: periodError } = await supabase.from('financial_periods').insert({ organization_id: organizationId, name: period.name, period_type: 'mensal', year: period.year, month: period.month }).select('id').single();
     if (periodError) throw periodError;
     try {
@@ -144,10 +155,12 @@ export async function importHistoricalPeriods(preview: ImportPreview): Promise<{
         if (error) throw error;
       }
       imported++;
+      onProgress?.({ completed: index + 1, total, label: `${period.name} importado com sucesso.` });
     } catch (error) {
       await supabase.from('financial_periods').delete().eq('id', createdPeriod.id);
       throw error;
     }
   }
+  onProgress?.({ completed: total, total, label: 'Importação concluída.' });
   return { imported, skipped };
 }

@@ -107,6 +107,7 @@ export const ControlPanelView: React.FC<ControlPanelViewProps> = ({
   const [catSubmitting, setCatSubmitting] = useState(false);
   const [newResetPin, setNewResetPin] = useState('');
   const [resetPin, setResetPin] = useState('');
+  const [showResetPinEditor, setShowResetPinEditor] = useState(false);
   const [securitySubmitting, setSecuritySubmitting] = useState(false);
   const [showResetConfirmation, setShowResetConfirmation] = useState(false);
 
@@ -723,13 +724,6 @@ export const ControlPanelView: React.FC<ControlPanelViewProps> = ({
                 <p className="text-[11px] text-rose-700">
                   Apaga períodos, entradas, despesas, categorias e parâmetros. Utilizadores e permissões são preservados.
                 </p>
-                <div className="space-y-2">
-                  <label className="block text-[11px] font-bold text-rose-900">Definir ou alterar PIN de segurança</label>
-                  <div className="flex gap-2">
-                    <input type="password" inputMode="numeric" pattern="[0-9]{4,8}" maxLength={8} value={newResetPin} onChange={(e) => setNewResetPin(e.target.value.replace(/\D/g, ''))} placeholder="4 a 8 algarismos" className="min-w-0 flex-1 rounded-lg border border-rose-200 bg-white px-3 py-2 text-xs" />
-                    <button type="button" disabled={securitySubmitting || newResetPin.length < 4} onClick={async () => { try { setSecuritySubmitting(true); await onSetResetPin(newResetPin); setNewResetPin(''); showAlert('PIN de segurança definido com sucesso.'); } catch { /* o handler apresenta o erro */ } finally { setSecuritySubmitting(false); } }} className="rounded-lg bg-slate-800 px-3 py-2 text-xs font-bold text-white disabled:opacity-40">Guardar PIN</button>
-                  </div>
-                </div>
                 <input type="password" inputMode="numeric" pattern="[0-9]{4,8}" maxLength={8} value={resetPin} onChange={(e) => setResetPin(e.target.value.replace(/\D/g, ''))} placeholder="Confirme o PIN para zerar" className="w-full rounded-lg border border-rose-300 bg-white px-3 py-2 text-xs" />
                 <button
                   type="button"
@@ -740,6 +734,46 @@ export const ControlPanelView: React.FC<ControlPanelViewProps> = ({
                   <RefreshCw className="w-3.5 h-3.5" />
                   <span>{securitySubmitting ? 'A processar…' : 'Zerar Base Financeira'}</span>
                 </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setNewResetPin('');
+                    setShowResetPinEditor((current) => !current);
+                  }}
+                  className="text-left text-[11px] font-semibold text-rose-700 underline decoration-rose-300 underline-offset-2 transition hover:text-rose-900"
+                  aria-expanded={showResetPinEditor}
+                >
+                  {showResetPinEditor ? 'Cancelar alteração do PIN' : 'Esqueci o PIN'}
+                </button>
+                {showResetPinEditor && (
+                  <div className="space-y-2 rounded-xl border border-rose-200 bg-white/70 p-3">
+                    <label className="block text-[11px] font-bold text-rose-900">Definir um novo PIN de segurança</label>
+                    <p className="text-[10px] leading-4 text-rose-700">Introduza entre 4 e 8 algarismos. O PIN anterior será substituído.</p>
+                    <div className="flex flex-col gap-2 sm:flex-row">
+                      <input type="password" inputMode="numeric" pattern="[0-9]{4,8}" maxLength={8} value={newResetPin} onChange={(e) => setNewResetPin(e.target.value.replace(/\D/g, ''))} placeholder="Novo PIN" autoComplete="new-password" className="min-w-0 flex-1 rounded-lg border border-rose-200 bg-white px-3 py-2 text-xs" />
+                      <button
+                        type="button"
+                        disabled={securitySubmitting || newResetPin.length < 4}
+                        onClick={async () => {
+                          try {
+                            setSecuritySubmitting(true);
+                            await onSetResetPin(newResetPin);
+                            setNewResetPin('');
+                            setShowResetPinEditor(false);
+                            showAlert('Novo PIN de segurança definido com sucesso.');
+                          } catch {
+                            // O handler apresenta o erro.
+                          } finally {
+                            setSecuritySubmitting(false);
+                          }
+                        }}
+                        className="rounded-lg bg-slate-800 px-3 py-2 text-xs font-bold text-white disabled:opacity-40"
+                      >
+                        Guardar novo PIN
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>

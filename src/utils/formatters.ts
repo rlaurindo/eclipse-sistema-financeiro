@@ -39,6 +39,34 @@ export function formatDate(isoDate: string | undefined): string {
   }
 }
 
+export function normalizeLookupKey(value: string | undefined | null): string {
+  return String(value ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .replace(/\s+/g, ' ')
+    .toLocaleLowerCase('pt-PT');
+}
+
+export function formatMonthYear(value: string | undefined, fallback = '-'): string {
+  if (!value) return fallback;
+  const isoDate = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!isoDate) return value.toLocaleUpperCase('pt-PT');
+
+  const year = Number(isoDate[1]);
+  const month = Number(isoDate[2]);
+  if (month < 1 || month > 12) return value;
+
+  return new Intl.DateTimeFormat('pt-PT', {
+    month: 'long',
+    year: 'numeric',
+    timeZone: 'UTC'
+  })
+    .format(new Date(Date.UTC(year, month - 1, 1)))
+    .replace(/\s+de\s+/i, ' ')
+    .toLocaleUpperCase('pt-PT');
+}
+
 // Export single sheet to Excel workbook
 export function exportSheetToExcel(sheet: CostSheet): void {
   const wb = XLSX.utils.book_new();
