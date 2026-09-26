@@ -63,6 +63,53 @@ export async function fetchDatabaseFromSupabase(): Promise<AppDatabase> {
   };
 }
 
+export async function createFinancialPeriod(period: {
+  name: string;
+  periodType: CostSheet['periodType'];
+  year: number;
+  month?: number;
+}): Promise<CostSheet> {
+  if (!supabase) throw new Error('Supabase não configurado.');
+  const organizationId = await getOrganizationId();
+  const { data, error } = await supabase
+    .from('financial_periods')
+    .insert({
+      organization_id: organizationId,
+      name: period.name.trim(),
+      period_type: period.periodType,
+      year: period.year,
+      month: period.periodType === 'mensal' ? period.month : null
+    })
+    .select('*')
+    .single();
+
+  if (error) {
+    if (error.code === '23505') {
+      throw new Error(`${period.name} já está cadastrado. Selecione esse período na lista ou escolha outro mês e ano.`);
+    }
+    throw error;
+  }
+
+  return {
+    id: data.id,
+    name: data.name,
+    periodType: data.period_type,
+    year: data.year,
+    month: data.month ?? undefined,
+    createdAt: data.created_at,
+    updatedAt: data.updated_at,
+    revenues: [],
+    costs: [],
+    fundExpenses: [],
+    companyAccountFundBalance: Number(data.company_account_fund_balance || 0),
+    fundValueReserve: Number(data.fund_value_reserve || 0),
+    consignationReserveNote: data.consignation_reserve_note || undefined,
+    ircEstimatedTax: data.irc_estimated_tax == null ? undefined : Number(data.irc_estimated_tax),
+    compensationDifference: data.compensation_difference == null ? undefined : Number(data.compensation_difference),
+    partners: []
+  };
+}
+
 async function getCurrentUserId(): Promise<string> {
   if (!supabase) throw new Error('Supabase não configurado.');
   const { data, error } = await supabase.auth.getUser();

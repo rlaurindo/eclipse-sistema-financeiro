@@ -23,7 +23,7 @@ import {
   ActiveTab 
 } from './types.ts';
 import { RefreshCw } from 'lucide-react';
-import { createCategory, createExpense, createRevenue, fetchDatabaseFromSupabase, removeCategory, removeExpense, removeRevenue, resetFinancialData, saveSystemSettings, setFinancialResetPin, updateExpense, updateRevenue } from './services/supabaseData.ts';
+import { createCategory, createExpense, createFinancialPeriod, createRevenue, fetchDatabaseFromSupabase, removeCategory, removeExpense, removeRevenue, resetFinancialData, saveSystemSettings, setFinancialResetPin, updateExpense, updateRevenue } from './services/supabaseData.ts';
 import { useAppDialog } from './context/AppDialogContext.tsx';
 
 const emptyDatabase: AppDatabase = {
@@ -331,27 +331,18 @@ function AppContent() {
     month?: number;
     cloneFromId?: string;
   }) => {
-    if (!isAdmin) return;
-    try {
-      const res = await fetch('/api/sheets', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-user-role': user.role
-        },
-        body: JSON.stringify(sheetData)
-      });
-      if (!res.ok) throw new Error('Falha ao criar novo período');
-      const created: CostSheet = await res.json();
-      setDatabase((prev) => ({
-        ...prev,
-        sheets: [created, ...prev.sheets]
-      }));
-      setActiveSheetId(created.id);
-      setActiveTab('dashboard');
-    } catch (err: any) {
-      showAlert('Erro ao criar período: ' + err.message);
-    }
+    if (!isAdmin) throw new Error('Apenas administradores podem criar períodos.');
+    const created = await createFinancialPeriod(sheetData);
+    const createdWithPartners: CostSheet = {
+      ...created,
+      partners: database.settings.partners.map((partner) => ({ ...partner, amount: 0 }))
+    };
+    setDatabase((prev) => ({
+      ...prev,
+      sheets: [createdWithPartners, ...prev.sheets]
+    }));
+    setActiveSheetId(createdWithPartners.id);
+    setActiveTab('dashboard');
   };
 
   const handleUpdateSettings = async (newSettings: Partial<SystemSettings>) => {

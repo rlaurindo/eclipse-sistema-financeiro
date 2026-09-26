@@ -3,6 +3,21 @@ import { Plus, Copy, FileSpreadsheet } from 'lucide-react';
 import { CostSheet } from '../types.ts';
 import { useAppDialog } from '../context/AppDialogContext.tsx';
 
+const MONTH_NAMES = [
+  'JANEIRO',
+  'FEVEREIRO',
+  'MARÇO',
+  'ABRIL',
+  'MAIO',
+  'JUNHO',
+  'JULHO',
+  'AGOSTO',
+  'SETEMBRO',
+  'OUTUBRO',
+  'NOVEMBRO',
+  'DEZEMBRO'
+];
+
 interface NewSheetModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -34,9 +49,27 @@ export const NewSheetModal: React.FC<NewSheetModalProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    const existingPeriod = periodType === 'mensal'
+      ? sheets.find((sheet) =>
+          (sheet.periodType || 'mensal') === 'mensal'
+          && Number(sheet.year) === year
+          && Number(sheet.month) === month
+        )
+      : undefined;
+
+    if (existingPeriod) {
+      showAlert(
+        `${existingPeriod.name || `${MONTH_NAMES[month - 1]} ${year}`} já está cadastrado. `
+          + 'Selecione esse período na lista ou escolha outro mês e ano.',
+        'Período já existente'
+      );
+      return;
+    }
+
     setLoading(true);
     try {
-      const sheetName = name.trim() || `MÊS ${month}/${year}`;
+      const sheetName = name.trim() || `${MONTH_NAMES[month - 1]} ${year}`;
       await onCreateSheet({
         name: sheetName,
         periodType,
@@ -47,7 +80,8 @@ export const NewSheetModal: React.FC<NewSheetModalProps> = ({
       onClose();
     } catch (err) {
       console.error(err);
-      showAlert('Erro ao criar planilha.');
+      const message = err instanceof Error ? err.message : 'Não foi possível criar o período.';
+      showAlert(message, 'Não foi possível criar o período');
     } finally {
       setLoading(false);
     }
@@ -78,7 +112,7 @@ export const NewSheetModal: React.FC<NewSheetModalProps> = ({
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className={`grid gap-3 ${periodType === 'mensal' ? 'grid-cols-3' : 'grid-cols-2'}`}>
             <div>
               <label className="block text-slate-700 mb-1 font-medium">Tipo de Período</label>
               <select
@@ -102,6 +136,21 @@ export const NewSheetModal: React.FC<NewSheetModalProps> = ({
                 className="w-full bg-white border border-slate-200 rounded-lg p-2.5 text-slate-800 outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
+
+            {periodType === 'mensal' && (
+              <div>
+                <label className="block text-slate-700 mb-1 font-medium">Mês</label>
+                <select
+                  value={month}
+                  onChange={(e) => setMonth(Number(e.target.value))}
+                  className="w-full bg-white border border-slate-200 rounded-lg p-2.5 text-slate-800 outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  {MONTH_NAMES.map((monthName, index) => (
+                    <option key={monthName} value={index + 1}>{monthName}</option>
+                  ))}
+                </select>
+              </div>
+            )}
           </div>
 
           <div>
